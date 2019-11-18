@@ -34,17 +34,15 @@ functions:
 
 tasks:
 - name: clone
-  depends_on: []
   commands:
     - func: "fetch source"
     - func: "merge in base branch"
-    - func: "placeholder"
-      vars:
-        foobar: "TESTING: ONE"
 
 - name: Ops Manager 4.2
+  tags:
+    - install
   depends_on:
-    - clone
+    - name: clone
   commands:
     - func: "placeholder"
       vars:
@@ -57,4 +55,5 @@ buildvariants:
   - ubuntu1804-build
   expansions:
   tasks:
-  - name: INSTALL
+  - name: clone
+  - name: .install
