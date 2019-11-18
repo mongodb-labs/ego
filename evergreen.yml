@@ -1,0 +1,52 @@
+variables:
+
+functions:
+  "fetch source" :
+    - command: git.get_project
+      type: system
+      params:
+        directory: src
+
+  "merge in base branch":
+    - command: shell.exec
+      type: system
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -vx
+          # exit if non-patch or this is not a pull request
+          if [[ "${is_patch}" != "true" || -z "${github_pr_number}"]]; then
+            exit 0
+          fi
+
+          # merge before checking
+          git merge --squash ${branch_name}
+
+  "placeholder":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -evx
+          echo "Placeholder: ${foobar}"
+
+tasks:
+- name: INSTALL
+  depends_on: []
+  commands:
+    - func: "fetch source"
+    - func: "merge in base branch"
+    - func: "placeholder"
+      vars:
+        foobar: "TESTING: ONE"
+
+buildvariants:
+- name: ubuntu
+  display_name: Ubuntu 18.04
+  run_on:
+  - ubuntu1804-build
+  expansions:
+  tasks:
+  - name: INSTALL
