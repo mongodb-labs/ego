@@ -32,14 +32,14 @@ functions:
           set -evx
           bin/ego link
 
-  "ego":
+  "install ops manager":
     - command: shell.exec
       params:
         working_dir: src
         shell: bash
         script: |
           set -evx
-          bin/ego
+          bin/ego ops_manager_install_package --version ${version} --mongodb-version ${mongodb_version}
 
   "placeholder":
     - command: shell.exec
@@ -50,8 +50,6 @@ functions:
           set -evx
           echo "Placeholder: ${foobar}"
 
-
-          
 tasks:
 - name: Ops Manager 4.2
   tags:
@@ -60,7 +58,10 @@ tasks:
     - func: "fetch source"
     - func: "merge in base branch"
     - func: "link"
-    - func: "ego"
+    - func: "install ops manager"
+      vars:
+        mongodb_version: 4.2.1
+        version: 4.2.3
 
 buildvariants:
 - name: ubuntu

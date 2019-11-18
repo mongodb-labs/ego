@@ -5,20 +5,16 @@ set -o errexit
 
 # Naming convention:
 # - public_function: these can be executed via "ego public_function param1 [param2] ..."
-# - scenario_something: this is a subtype of public function which is generally used to run a series of functions in-order
-#                       achieving a scenario-like set-up which can be seen as a passing or failing test
-#                       example: "ego scenario_full_env"
 # - _private_function: these cannot be called via the CLI
 #
-# Scenarios:
+# Main logic:
 # These are probably the more useful abstractions, since they can be used to quickly set-up a new host and execute a desired
 # flow to either confirm that the E2E tests can be run against a custom build, or to simply provision a custom environment.
-# - scenario_install_package: Install the latest Ops Manager package, then start it; can be configured with SSL (Linux-only)
-# - scenario_install_package_from_link: Download and install the given Ops Manager package
-# - scenario_install_then_upgrade_package: Install the previous major Ops Manager version, then upgrade it to the latest one
-# - scenario_install_uninstall:  Install the latest Ops Manager package, start it, then uninstall it
-# - scenario_clean: Reset the environment to resemble a fresh Ops Manager install (delete AppDb and Blockstore data dir)
-# - scenario_start_from_tgz: Given an Ops Manager tgz, extract the files and start the service with the current user account
+# - ops_manager_install_package: Install the latest Ops Manager package, then start it; can be configured with SSL (Linux-only)
+# - ops_manager_package_from_link: Download and install the given Ops Manager package
+# - ops_manager_install_then_upgrade_package: Install the previous major Ops Manager version, then upgrade it to the latest one
+# - ops_manager_clean: Reset the environment to resemble a fresh Ops Manager install (delete AppDb and Blockstore data dir)
+# - ops_manager_start_from_tgz: Given an Ops Manager tgz, extract the files and start the service with the current user account
 #
 # Other features:
 # - run: executes the specified command on a remote host via SSH and pipes all output to stdout
@@ -50,7 +46,7 @@ set -o errexit
 
 readonly DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
-readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip download_logs get_app_setting get_host_ip get_om_port get_om_scheme is_local_port_open is_upgrade_mode_enabled nohup run seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port scenario_start_from_tgz"
+readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip download_logs get_app_setting get_host_ip get_om_port get_om_scheme is_local_port_open is_upgrade_mode_enabled nohup run seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
 # Other settings
 declare -a curl_opts
@@ -1420,7 +1416,7 @@ opsman_configure_ssl() {
 #                 MAIN Ops Manager actions
 # #######################################################
 
-scenario_clean() {
+ops_manager_clean() {
     echo "Stopping Ops Manager, the AppDB, and the Blockstore; also deleting data dirs..."
     echo
 
@@ -1444,10 +1440,7 @@ scenario_clean() {
     echo "The Ops Manager environment was reset."
     echo
 }
-#TODO: continue reviewing from here
-
-# TODO: accept a specific major version
-scenario_install_package() {
+ops_manager_install_package() {
     local central_url="http://localhost:${MMS_PORT}"
     local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
     local version
@@ -1494,8 +1487,9 @@ scenario_install_package() {
     start_ops_manager
 }
 
+# TODO: continue reviewing from here
 # TODO: accept a LINK, verify that extension matches
-scenario_install_package_from_link() {
+ops_manager_install_package_from_link() {
     _usage() {
         echo
         echo '  --url <package>                               Specify the url to download OM from '
@@ -1545,11 +1539,12 @@ scenario_install_package_from_link() {
     fi
     start_ops_manager
 }
+
 # TODO: handle ops manager install/upgrade; possible remove
-scenario_upgrade_package() {
+ops_manager_upgrade_package() {
     _print_usage() {
-        echo "Invalid call: 'scenario_upgrade_package $*'"
-        echo "Usage: scenario_upgrade_package --final-package-link <url>"
+        echo "Invalid call: 'ops_manager_upgrade_package $*'"
+        echo "Usage: ops_manager_upgrade_package --final-package-link <url>"
         echo
     }
 
@@ -1562,7 +1557,7 @@ scenario_upgrade_package() {
             --final-package-url) final_package_url=$2; shift 2 ;;
             --skip-waiting-for-open-ports) skip_wait="--skip-waiting-for-open-ports"; shift ;;
             --skip-waiting-for-daemon) skip_wait_daemon="--skip-waiting-for-daemon" ; shift ;;
-            * ) echo "invalid option for upgrade scenario $1" ; _print_usage "$@" ; exit 1 ;;
+            * ) echo "Invalid configuration option: $1" ; _print_usage "$@" ; exit 1 ;;
         esac
     done
 
@@ -1580,17 +1575,17 @@ scenario_upgrade_package() {
     start_ops_manager ${skip_wait} ${skip_wait_daemon}
 }
 
-scenario_uninstall() {
+ops_manager_uninstall() {
     stop_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
     stop_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
     _uninstall_mongodb
     _uninstall_ops_manager
 }
 
-scenario_start_from_tgz() {
+ops_manager_start_from_tgz() {
     if [[ "$#" -lt 2 ]]; then
-        echo "Invalid call: 'scenario_start_from_tgz $*'"
-        echo "Usage: scenario_start_from_tgz TGZ_LINK BASE_HOST BASE_PORT"
+        echo "Invalid call: 'ops_manager_start_from_tgz $*'"
+        echo "Usage: ops_manager_start_from_tgz TGZ_LINK BASE_HOST BASE_PORT"
         echo "- TGZ_LINK: location of the Ops Manager package to be installed on the current machine"
         echo "- BASE_HOST: Host on which the Ops Manager install will be started"
         echo
