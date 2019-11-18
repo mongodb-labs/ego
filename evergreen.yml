@@ -16,7 +16,7 @@ functions:
         script: |
           set -vx
           # exit if non-patch or this is not a pull request
-          if [[ "${is_patch}" != "true" || -z "${github_pr_number}"]]; then
+          if [[ "${is_patch}" != "true" || -z "${github_pr_number}" ]]; then
             exit 0
           fi
 
@@ -33,11 +33,19 @@ functions:
           echo "Placeholder: ${foobar}"
 
 tasks:
-- name: INSTALL
+- name: clone
   depends_on: []
   commands:
     - func: "fetch source"
     - func: "merge in base branch"
+    - func: "placeholder"
+      vars:
+        foobar: "TESTING: ONE"
+
+- name: Ops Manager 4.2
+  depends_on:
+    - clone
+  commands:
     - func: "placeholder"
       vars:
         foobar: "TESTING: ONE"
