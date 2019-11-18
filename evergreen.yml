@@ -23,6 +23,24 @@ functions:
           # merge before checking
           git merge --squash ${branch_name}
 
+  "link":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -evx
+          bin/ego link
+
+  "ego":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -evx
+          bin/ego
+
   "placeholder":
     - command: shell.exec
       params:
@@ -32,6 +50,8 @@ functions:
           set -evx
           echo "Placeholder: ${foobar}"
 
+
+          
 tasks:
 - name: Ops Manager 4.2
   tags:
@@ -39,9 +59,8 @@ tasks:
   commands:
     - func: "fetch source"
     - func: "merge in base branch"
-    - func: "placeholder"
-      vars:
-        foobar: "TESTING: ONE"
+    - func: "link"
+    - func: "ego"
 
 buildvariants:
 - name: ubuntu

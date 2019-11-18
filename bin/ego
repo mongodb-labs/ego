@@ -3,7 +3,6 @@
 set -o nounset
 set -o errexit
 
-
 # Naming convention:
 # - public_function: these can be executed via "ego public_function param1 [param2] ..."
 # - scenario_something: this is a subtype of public function which is generally used to run a series of functions in-order
@@ -568,35 +567,18 @@ _user_dir() {
 _curl() {
     $(command -v curl) "$@"
 }
-update_bin_path() {
-    # TODO: may not be required if deploying ego to /usr/local/bin
+link() {
     if [[ "$#" -lt 1 ]]; then
         echo "An output filename was not specified!"
         echo
         exit 1
     fi
 
-    for f in "$@"; do
-        PATHFILE="$(_user_dir)/$f"
-
-        # Check that the output file is writeable
-        if [[ -f "${PATHFILE}" && ! -w "${PATHFILE}" ]]; then
-            echo "Could not write to ${PATHFILE}!"
-            echo
-            return 1
+    # Link the script to make it available for running
+    for p in /usr/local/bin /usr/bin; do
+        if echo "$PATH" | grep -q "$p"; then
+            ln -sf "${DIR}/${SCRIPT}" "$p"
         fi
-
-        # Do not append bin/ to PATH, if already set
-        CONF_HEADER="# EGO env settings"
-        if grep -q "${CONF_HEADER}" "${PATHFILE}"; then
-            return 0
-        fi
-
-        echo ""                             | tee -a "${PATHFILE}"
-        echo "${CONF_HEADER}"               | tee -a "${PATHFILE}"
-        # shellcheck disable=SC2016
-        echo 'export PATH=$HOME/bin:$PATH'  | tee -a "${PATHFILE}"
-        echo "Updated system path to include ${HOME}/bin (via ${PATHFILE})"
     done
 }
 _set_mongod_vars() {
@@ -1778,7 +1760,7 @@ seed() {
     scp "${DIR}/${SCRIPT}" "$1:"
 
     # shellcheck disable=SC2016
-    exec_cmd='mkdir -p $HOME/bin; mv '${SCRIPT}' $HOME/bin/; $HOME/bin/'${SCRIPT}' update_bin_path .bashrc .bash_profile'
+    exec_cmd='mkdir -p $HOME/bin; mv '${SCRIPT}' $HOME/bin/; $HOME/bin/'${SCRIPT}' link'
 
     # shellcheck disable=SC2016,SC2086
     if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${exec_cmd}; then
