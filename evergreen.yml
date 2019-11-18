@@ -33,17 +33,12 @@ functions:
           echo "Placeholder: ${foobar}"
 
 tasks:
-- name: clone
-  commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-
 - name: Ops Manager 4.2
   tags:
     - install
-  depends_on:
-    - name: clone
   commands:
+    - func: "fetch source"
+    - func: "merge in base branch"
     - func: "placeholder"
       vars:
         foobar: "TESTING: ONE"
@@ -55,5 +50,4 @@ buildvariants:
   - ubuntu1804-build
   expansions:
   tasks:
-  - name: clone
   - name: .install
