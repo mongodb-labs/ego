@@ -564,12 +564,6 @@ _curl() {
     $(command -v curl) "$@"
 }
 link() {
-    if [[ "$#" -lt 1 ]]; then
-        echo "An output filename was not specified!"
-        echo
-        exit 1
-    fi
-
     # Link the script to make it available for running
     for p in /usr/local/bin /usr/bin; do
         if echo "$PATH" | grep -q "$p"; then
