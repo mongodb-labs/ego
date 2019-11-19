@@ -565,12 +565,14 @@ _curl() {
     $(command -v curl || echo "curl") "$@"
 }
 link() {
+    echo "Linking EGO in the system path..."
     # Link the script to make it available for running
     for p in /usr/local/bin /usr/bin; do
         if echo "$PATH" | grep -q "$p"; then
             ln -sf "${DIR}/${SCRIPT}" "$p"
         fi
     done
+    echo "Linked."
 }
 _set_mongod_vars() {
     if [[ "${PLATFORM}" = "windows" ]]; then # Cygwin
@@ -854,6 +856,8 @@ _identify_installable_om_archive() {
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ "${PLATFORM}" = "amazon" ]] || [[ "${PLATFORM}" = "suse" ]]; then # Red Hat/Amazon Linux/SuSe
         package_format="rpm"
+    else
+        _unsupported_distro
     fi
 
     local tgz
@@ -1535,7 +1539,7 @@ ops_manager_install_version() {
     _ensure_tmp_dir_is_writeable
 
     local archive
-    archive="$(_identify_installable_om_archive "$version" "$tgz")"
+    archive="$(_identify_installable_om_archive --version "$version" "$tgz")"
 
     ops_manager_install_from_link --archive "$archive" \
                                   --mongodb-version "$mongodb_version" \
