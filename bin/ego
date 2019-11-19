@@ -2,6 +2,7 @@
 
 set -o nounset
 set -o errexit
+set -vx
 
 # Naming convention:
 # - public_function: these can be executed via "ego public_function param1 [param2] ..."
