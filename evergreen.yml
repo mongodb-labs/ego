@@ -39,7 +39,7 @@ functions:
         shell: bash
         script: |
           set -evx
-          bin/ego ops_manager_install_package --version ${version} --mongodb-version ${mongodb_version}
+          bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version}
 
   "uninstall ops manager":
     - command: shell.exec

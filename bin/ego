@@ -14,7 +14,6 @@ set -o errexit
 #                                on Linux, SSL can also be configured
 # - ops_manager_install_from_link: Download and install the given Ops Manager package
 
-# - ops_manager_install_then_upgrade_package: Install the previous major Ops Manager version, then upgrade it to the latest one
 # - ops_manager_clean: Reset the environment to resemble a fresh Ops Manager install (delete AppDb and Blockstore data dir)
 # - ops_manager_start_from_tgz: Given an Ops Manager tgz, extract the files and start the service with the current user account
 #
@@ -881,29 +880,14 @@ _identify_installable_om_archive() {
 _download_ops_manager() {
     # Parameter check
     if [[ "$#" -eq 0 ]]; then
-        echo "A version was not supplied!"
-        echo "Usage: _download_ops_manager --version VERSION [--tgz]"
+        echo "The Ops Manager archive was not supplied!"
+        echo "Usage: _download_ops_manager OPS_MANAGER_ARCHIVE"
         echo
         exit 1
     fi
-
-    local tgz
-    while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-            --version) version="$2"; shift 2;;
-            --tgz) tgz="--tgz"; shift;;
-            * ) echo "Invalid configuration option: $1" ; exit 1 ;;
-        esac
-    done
-
-    # Get the latest release archive and find the desired binary
-    local archive
-    archive="$(_identify_installable_om_archive "$version" "$tgz")"
+    local archive="$1"
 
     pushd "$(_user_dir)" > /dev/null
-    
-    #xxx: split into two functions to support installing from both link/archive
-
     local local_file
     local_file="$(_get_mms_archive "${archive}")"
     echo "Downloading Ops Manager: ${archive} to ${local_file}..."
@@ -980,14 +964,40 @@ _install_ops_manager() {
 
     # Determine if this is an upgrade operation
     local upgrade=0
+    local archive
     while [[ "$#" -gt 0 ]]; do
       case "$1" in
         --upgrade) upgrade=1; shift ;;
+        --archive) archive="$2"; shift 2;;
         * ) echo "Invalid install option: $1" ; exit 1 ;;
       esac
     done
 
-    if [[ "${PLATFORM}" = "windows" ]]; then
+    # specify RPM upgrade options
+    declare -a rpm_flags
+    rpm_flags[0]="-ivh" # install package by default
+    if [[ "$upgrade" -eq 1 ]]; then
+        rpm_flags[0]="-Uvh"
+        rpm_flags[1]="--oldpackage"
+    fi
+
+    local local_file
+    local_file="$(_get_mms_archive "${archive}")"
+    if [[ ! -f "${local_file}" ]]; then
+        echo "Cannot install Ops Manager: ${local_file} does not exist!"
+        echo
+        exit 1
+    fi
+
+    local ext="${local_file#*.}"
+    
+    if [[ "${ext}" == "tgz" || "${ext}" == "tar.gz" ]]; then
+        # Using a tar.gz
+        echo "TODO: tar.gz installs are not fully supported yet; aborting for now"
+        echo
+        exit 1
+
+    elif [[ "${PLATFORM}" = "windows" ]]; then
         if [ "${upgrade}" -eq 1 ]; then
             echo "Upgrading Ops Manager on Windows is not supported"
             echo
@@ -1001,48 +1011,24 @@ _install_ops_manager() {
         ./vcredist_x64.exe /quiet /norestart || echo "VC redist 2013 for Ops Manager might already be installed..."
         rm -f vcredist_x64.exe
 
-        local_file="$(_get_mms_archive msi)"
-        if [[ ! -f "${local_file}" ]]; then
-            echo "Cannot install Ops Manager: ${local_file} does not exist."
-            echo
-            exit 1
-        fi
-
         echo "Installing Ops Manager (${local_file})..."
         msiexec /passive /i "${local_file}" || echo "Ops Manager might already be installed..."
         rm -f "${local_file}"
 
     elif [[ "${PLATFORM}" = "debian" ]] || [[ ${PLATFORM} = "ubuntu" ]]; then # Debian/Ubuntu
-        local_file="$(_get_mms_archive deb)"
-        if [[ ! -f "${local_file}" ]]; then
-            echo "Cannot install Ops Manager: ${local_file} does not exist."
-            echo
-            exit 1
-        fi
-
         echo "Installing Ops Manager (${local_file})..."
         dpkg -i --force-confnew "${local_file}"
         rm -f "${local_file}"
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux/SuSe
-        local_file="$(_get_mms_archive rpm)"
-        if [[ ! -f "${local_file}" ]]; then
-            echo "Cannot install Ops Manager: ${local_file} does not exist."
-            echo
-            exit 1
-        fi
-
-        # Determine rpm command: install/upgrade
-        declare -a rpm_flags
-        rpm_flags[0]="-ivh" # install package
-        if [[ "${upgrade}" -eq 1 ]]; then
-            rpm_flags[0]="-Uvh" # upgrade package
-            rpm_flags[1]="--oldpackage" # allow old distros
-        fi
-
         echo "Installing Ops Manager (${local_file})..."
         rpm "${rpm_flags[@]}" "${local_file}"
         rm -f "${local_file}"
+    else
+        echo "Unsupported combination of options or something went wrong: $*"
+        echo "Exiting!"
+        echo
+        exit 1
     fi
 
     popd > /dev/null
@@ -1113,6 +1099,7 @@ get_om_scheme() {
         echo "http"
     fi
 }
+#shellcheck disable=SC2120
 start_ops_manager() {
     local port
     port="$(get_om_port)"
@@ -1121,7 +1108,6 @@ start_ops_manager() {
     local do_not_wait_for_daemon=0
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
-            --port)  port="$2"; shift 2;;
             --skip-waiting-for-service-start) do_not_wait_for_port=1 ; shift ;;
             --skip-waiting-for-daemon) do_not_wait_for_daemon=1 ; shift ;;
             * ) echo "Invalid start option: $1" ; exit 1 ;;
@@ -1522,26 +1508,75 @@ ops_manager_install_version() {
     
     local version
     local mongodb_version
-    local central_url="http://localhost:${MMS_PORT}"
-    local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
-    local ssl=0
+    local central_url
     local ssl_hostname=
     local tgz=""
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
-            --version) version=$2; shift 2 ;;
-            --mongodb-version) mongodb_version=${2-}; shift 2 ;;
-            --central-url) central_url=$2; shift 2 ;;
-            --ssl) ssl=1; ssl_hostname=${2-}; shift 2 ;;
+            --version) version="${2-}"; shift 2 ;;
+            --mongodb-version) mongodb_version="${2-}"; shift 2 ;;
+            --central-url) central_url="${2-}"; shift 2 ;;
+            --ssl) ssl_hostname="${2-}"; shift 2 ;;
             --tgz) tgz="--tgz"; shift ;;
             * ) echo "Invalid configuration option: $1"; return 1 ;;
         esac
     done
 
-    echo "Installing Ops Manager ver: ${version}"
+    # Parameter check
+    if [[ -z "${version}" ]]; then
+        echo "A version was not specified!"
+        _usage
+        exit 1
+    fi
+
+    echo "Installing Ops Manager version: ${version}"
 
     _iptables_allow_all
     _ensure_tmp_dir_is_writeable
+
+    local archive
+    archive="$(_identify_installable_om_archive "$version" "$tgz")"
+
+    ops_manager_install_from_link --archive "$archive" \
+                                  --mongodb-version "$mongodb_version" \
+                                  --central-url "$central_url" \
+                                  --ssl "$ssl_hostname"
+}
+ops_manager_install_from_link() {
+    _usage() {
+        echo
+        echo 'Options:'
+        echo '  --archive <archive>           The Ops Manager archive to download and install'
+        echo '  --mongodb-version <version>   The MongoDB version to use for AppDB'
+        echo '  --central-url <uri>           Ops Manager central url'
+        echo '  --ssl                         Generate and deploy an SSL certificate and configure Ops Manager to use it'
+    }
+
+    local archive=
+    local mongodb_version
+    local central_url="http://localhost:${MMS_PORT}"
+    local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
+    local ssl=0
+    local ssl_hostname
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --archive) archive="${2-}"; shift 2 ;;
+            --mongodb-version) mongodb_version="${2-}"; shift 2 ;;
+            --central-url) central_url="${2-}"; shift 2 ;;
+            --ssl) ssl=1; ssl_hostname="${2-}"; shift 2 ;;
+            * ) echo "Invalid configuration option: $1"; return 1 ;;
+        esac
+    done
+
+    # Parameter check
+    if [[ -z "${archive}" ]]; then
+        echo "Archive was not specified!"
+        _usage
+        exit 1
+    fi
+
+    _iptables_allow_all
+    resolve_system_dependencies
 
     local upgrade
     INSTALLED_VERSION="$(_find_installed_package mongodb-mms)"
@@ -1565,14 +1600,14 @@ ops_manager_install_version() {
         fi
     fi
 
-    _download_ops_manager --version "${version}" "${tgz}"
+    _download_ops_manager "$archive"
     
     if [[ "$upgrade" == "--upgrade" ]]; then
         # Stop Ops Manager before performing an upgrade
         stop_ops_manager
     fi
 
-    _install_ops_manager "$upgrade"
+    _install_ops_manager --archive "$archive" "$upgrade"
 
     _configure_ops_manager --skip-registration-wizard \
                           --central-url "${central_url}" \
@@ -1590,92 +1625,7 @@ ops_manager_install_version() {
 }
 
 # TODO: continue reviewing from here
-# TODO: accept a LINK, verify that extension matches
-ops_manager_install_from_link() {
-    _usage() {
-        echo
-        echo '  --url <package>                               Specify the url to download OM from '
-        echo '  --central-url <uri>                           Specify OM central url property'
-        echo '  --appdb-url <uri>                             Specify OM appdb url property'
-        echo '  --skip-mongodb                                Do not install a mongodb server'
-        echo '  --encrypted-credentials <username> <password> Use encrypted credentials for appdb'
-    }
-    local central_url="http://localhost:${MMS_PORT}"
-    local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
-    local url=
-    local encrypted_credentials=()
-    while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-            --url) url=$2; shift 2 ;;
-            --central-url) central_url=$2; shift 2 ;;
-            --appdb-url) appdb_url=$2; shift 2 ;;
-            --encrypted-credentials) encrypted_credentials=('--encrypted-credentials' "$2" "$3"); shift 3;;
-            * ) echo "Invalid configuration option: $1"; _usage; return 1 ;;
-        esac
-    done
-
-    if [[ -z "${url}" ]]; then
-        echo "Missing package url"
-        _usage
-        exit 1
-    fi
-
-    _iptables_allow_all
-    resolve_system_dependencies
-
-    download_mongodb "${CONFIGDB_MDB_VERSION}"
-    _download_ops_manager --version "${version}"
-    _install_ops_manager
-
-    _configure_ops_manager --skip-registration-wizard \
-                          --central-url "${central_url}" \
-                          --appdb-url "${appdb_url}" \
-                          ${encrypted_credentials[@]+"${encrypted_credentials[@]}"}
-
-    if ! is_local_port_open "${DEFAULT_MMS_MONGODB_PORT}"; then
-        start_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
-    fi
-    if ! is_local_port_open "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"; then
-        start_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
-    fi
-    start_ops_manager
-}
-
-# TODO: handle ops manager install/upgrade; possible remove
-ops_manager_upgrade_package() {
-    _print_usage() {
-        echo "Invalid call: 'ops_manager_upgrade_package $*'"
-        echo "Usage: ops_manager_upgrade_package --final-package-link <url>"
-        echo
-    }
-
-    local final_package_url=
-    local skip_wait=
-    local skip_wait_daemon=
-
-    while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-            --final-package-url) final_package_url=$2; shift 2 ;;
-            --skip-waiting-for-open-ports) skip_wait="--skip-waiting-for-open-ports"; shift ;;
-            --skip-waiting-for-daemon) skip_wait_daemon="--skip-waiting-for-daemon" ; shift ;;
-            * ) echo "Invalid configuration option: $1" ; _print_usage "$@" ; exit 1 ;;
-        esac
-    done
-
-    if [[  -z "${final_package_url}" ]] ; then
-        _print_usage
-
-    fi
-    echo "Upgrading to: $final_package_url"
-
-    stop_ops_manager
-
-    _download_ops_manager --version "${version}"
-    _install_ops_manager --upgrade
-
-    start_ops_manager ${skip_wait} ${skip_wait_daemon}
-}
-
+# TODO: merge into previous method
 ops_manager_start_from_tgz() {
     if [[ "$#" -lt 2 ]]; then
         echo "Invalid call: 'ops_manager_start_from_tgz $*'"
