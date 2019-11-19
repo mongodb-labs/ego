@@ -77,7 +77,7 @@ readonly ssh_opts
 readonly timeout_duration="15m"
 declare -ri DEFAULT_MMS_MONGODB_PORT=27017
 declare -ri DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT=27018
-declare -ri JQ_VERSION="1.6"
+readonly JQ_VERSION="1.6"
 readonly DEFAULT_MMS_DIR="/opt/mongodb/mms"
 readonly MONGOD_INSTALL_DIR="data"
 readonly NOHUP_LOG_FILE="ego.log"
