@@ -640,20 +640,24 @@ download_mongodb() {
         tar zxf "${file_name}"
     fi
 
+    local final_dir
+    final_dir="$(_user_dir)"/mongodb
+
     # Move database to final location
     rm -f "${file_name}"
     mdb_dir="${file_name%.*}"
-    mv "${mdb_dir}" "$(_user_dir)"/mongodb
+    mv "${mdb_dir}" "${final_dir}"
+    echo "Downloaded ${archive} and deployed at ${final_dir} ..."
 
     # For enterprise builds, install the Visual Studio redistributable
     if [[ "${PLATFORM}" = "windows" ]] && echo "${file_name}" | grep -q "enterprise"; then
         echo "Installing VC redist for MongoDB..."
-        chmod +x "$(_user_dir)"/mongodb/vcredist_x64.exe
-        "$(_user_dir)"/mongodb/vcredist_x64.exe /quiet /norestart || echo "VC redist might already be installed..."
+        chmod +x "${final_dir}/vcredist_x64.exe"
+        "${final_dir}/vcredist_x64.exe" /quiet /norestart || echo "VC redist might already be installed..."
     fi
 
     # Set perms
-    chmod +x "$(_user_dir)"/mongodb/bin/*
+    chmod +x "${final_dir}"/bin/*
 
     popd > /dev/null
 }
@@ -1459,7 +1463,7 @@ ops_manager_install_package() {
     _ensure_tmp_dir_is_writeable
 
     download_mongodb "${mongodb_version}"
-    _download_ops_manager "${version}"
+    _download_ops_manager --version "${version}"
     _install_ops_manager
 
     _configure_ops_manager --skip-registration-wizard \
@@ -1518,7 +1522,7 @@ ops_manager_install_package_from_link() {
     resolve_system_dependencies
 
     download_mongodb "${CONFIGDB_MDB_VERSION}"
-    _download_ops_manager "${version}"
+    _download_ops_manager --version "${version}"
     _install_ops_manager
 
     _configure_ops_manager --skip-registration-wizard \
@@ -1564,7 +1568,7 @@ ops_manager_upgrade_package() {
 
     stop_ops_manager
 
-    _download_ops_manager "${version}"
+    _download_ops_manager --version "${version}"
     _install_ops_manager --upgrade
 
     start_ops_manager ${skip_wait} ${skip_wait_daemon}
@@ -1580,6 +1584,8 @@ ops_manager_start_from_tgz() {
         return 1
     fi
 
+    # TODO: _download_ops_manager --version "${version}" --tgz
+    
     # Determine args
     TGZ_LINK="$1"
     BASE_HOST="$2"
