@@ -21,6 +21,12 @@ At a high-level, it works as follows:
 3\. from there onwards, you can run any number of tasks (see below)
 
 
+# Install
+
+```shell
+curl -sL https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
+```
+
 # LICENSE
 
 'ego' is free and the source is available. Ego is published
