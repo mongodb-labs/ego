@@ -57,15 +57,24 @@ functions:
         type: system
         shell: bash
         script: |
-          echo
-          echo "==> mms0.log"
-          cat /opt/mongodb/mms/logs/mms0.log
-          echo
-          echo "==> mms0.log"
-          cat /opt/mongodb/mms/logs/mms0-startup.log
-          echo
-          echo "==> mms0.log"
+          echo "Outputting Ops Manager logs:"
+          
+          echo "==>"
+          echo "==> mms-migration.log"
           cat /opt/mongodb/mms/logs/mms-migration.log
+
+          echo "==>"
+          echo "==> mms0-startup.log"
+          cat /opt/mongodb/mms/logs/mms0-startup.log
+
+          echo "==>"
+          echo "==> daemon.log"
+          cat /opt/mongodb/mms/logs/daemon.log
+
+          echo "==>"
+          echo "==> mms0.log"
+          cat /opt/mongodb/mms/logs/mms0.log          
+
     - command: shell.exec
       params:
         working_dir: src

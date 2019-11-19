@@ -89,13 +89,8 @@ declare -ri MMS_DAEMON_PORT=8087
 declare -ri PROXY_PORT=8888
 
 # Commands
-LSB_RELEASE="$(command -v lsb_release || echo "lsb_release")"
-NC="$(command -v nc || echo "nc")"
-SCP="$(command -v scp || echo "scp")"
-SERVICE="$(command -v service || echo "service")"
-SSH="$(command -v ssh || echo "ssh")"
-TIMEOUT="$(command -v timeout || echo "timeout")"
-UNAME="$(command -v uname || echo "uname")"
+NC="$(command -v nc || command -v netcat || exit 2)"
+SSH="$(command -v ssh || exit 2)"
 
 _mark_versions_set() {
     export INSTALL_VERSION="$1"
@@ -108,8 +103,8 @@ _are_versions_set() {
 }
 _fix_term() {
     # Set a TERM env var
-    if [[ -z "${TERM+x}" ]]; then
-      export TERM=xterm
+    if [[ -z "${TERM-}" ]]; then
+      export TERM="screen-256colorx"
     fi
 
     # Do not allow Debian distros to have an interactive term
@@ -117,7 +112,17 @@ _fix_term() {
       export DEBIAN_FRONTEND="noninteractive"
     fi
 }
-export CONFIGDB_MDB_VERSION=4.2.1
+_timeout() {
+    if command -v timeout > /dev/null 2>&1; then
+        command -v timeout
+    elif command -v gtimeout > /dev/null 2>&1; then
+        command -v gtimeout
+    else
+        echo "Could not find a timeout command!"
+        echo
+        exit 1
+    fi
+}
 
 # #######################################################
 #                   SYSTEM DEPENDENCIES
@@ -125,15 +130,15 @@ export CONFIGDB_MDB_VERSION=4.2.1
 readonly E_UNSUPPORTED_DISTRO=145
 _unsupported_distro() {
     echo "Unsupported distro..."
-    if "$UNAME" > /dev/null 2>&1; then
+    if uname > /dev/null 2>&1; then
         echo
         echo "uname:"
         uname -a
     fi
-    if "$LSB_RELEASE" > /dev/null 2>&1; then
+    if lsb_release > /dev/null 2>&1; then
         echo
         echo "lsb_release:"
-        "$LSB_RELEASE" -a
+        lsb_release -a
     fi
     if [[ -f /etc/SuSe-release ]]; then
         echo
@@ -188,11 +193,11 @@ _determine_architecture() {
 
     elif uname -a | grep -q Ubuntu > /dev/null 2>&1; then # Ubuntu
         PLATFORM="ubuntu"
-        if "$LSB_RELEASE" -a 2>&1 | grep 18.04 > /dev/null 2>&1; then
+        if lsb_release -a 2>&1 | grep 18.04 > /dev/null 2>&1; then
             OSVER=18
             MDB_ARCH="x86_64-ubuntu1804"
 
-        elif "$LSB_RELEASE" -a 2>&1 | grep 16.04 > /dev/null 2>&1; then
+        elif lsb_release -a 2>&1 | grep 16.04 > /dev/null 2>&1; then
             OSVER=16
             MDB_ARCH="x86_64-ubuntu1604"
 
@@ -204,12 +209,12 @@ _determine_architecture() {
         PLATFORM="macos"
         MDB_ARCH="ssl-x86_64"
 
-    elif "$LSB_RELEASE" -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 8" > /dev/null; then # Red Hat 8
+    elif lsb_release -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 8" > /dev/null; then # Red Hat 8
         PLATFORM="rhel"
         OSVER="8"
         MDB_ARCH="x86_64-rhel80"
 
-    elif "$LSB_RELEASE" -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 7" > /dev/null; then # Red Hat 7
+    elif lsb_release -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 7" > /dev/null; then # Red Hat 7
         PLATFORM="rhel"
         OSVER="7"
         MDB_ARCH="x86_64-rhel70"
@@ -234,7 +239,7 @@ _determine_architecture() {
         OSVER="7"
         MDB_ARCH="x86_64-rhel70"
 
-    elif "$LSB_RELEASE" -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 6" > /dev/null; then
+    elif lsb_release -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 6" > /dev/null; then
         PLATFORM="rhel"
         OSVER="6"
         MDB_ARCH="x86_64-rhel62"
@@ -338,7 +343,7 @@ service_command() {
             systemctl --no-pager status -l "${SERVICE_NAME}.service"
         fi
 
-    elif "$SERVICE" > /dev/null 2>&1; then
+    elif command -v service > /dev/null 2>&1; then
         echo "[SysV] ${COMMAND} ${SERVICE_NAME}"
         service "${SERVICE_NAME}" "${COMMAND}"
 
@@ -375,7 +380,7 @@ is_local_port_open() {
             return 0
         fi
     else
-        if "$TIMEOUT" 1s bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$1" > /dev/null 2>&1; then
+        if _timeout 1s bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$1" > /dev/null 2>&1; then
             echo "Port $1 is open!"
             return 0
         fi
@@ -396,14 +401,14 @@ wait_for_open_port() {
 
     echo "Waiting for ${timeout_duration} for port $1:$2 to open..."
     FLAG=""
-    if "$TIMEOUT" --foreground 1s echo > /dev/null 2>&1; then
+    if _timeout --foreground 1s echo > /dev/null 2>&1; then
         FLAG="--foreground"
     fi
 
     if [ -e "$NC" ]; then
-        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while ! '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
+        _timeout ${FLAG} ${timeout_duration} bash -c 'while ! '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
     else
-        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while ! '"$TIMEOUT"' '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$2"'" > /dev/null 2>&1; do printf .; sleep 5; done'
+        _timeout ${FLAG} ${timeout_duration} bash -c 'while ! _timeout '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$2"'" > /dev/null 2>&1; do printf .; sleep 5; done'
     fi
     echo "Port $1:$2 is open!"
 }
@@ -429,13 +434,13 @@ wait_for_closed_port() {
 
     echo "Waiting for ${timeout_duration} for port $1:$2 to close..."
     FLAG=""
-    if "$TIMEOUT" --foreground 1s echo > /dev/null 2>&1; then
+    if _timeout --foreground 1s echo > /dev/null 2>&1; then
         FLAG="--foreground"
     fi
     if [ -e "$NC" ]; then
-        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
+        _timeout ${FLAG} ${timeout_duration} bash -c 'while '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
     else
-        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while '"$TIMEOUT"' '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$1"'" > /dev/null 2>&1; do printf .; sleep 5; done'
+        _timeout ${FLAG} ${timeout_duration} bash -c 'while _timeout '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$1"'" > /dev/null 2>&1; do printf .; sleep 5; done'
     fi
     echo "Port $1:$2 is closed!"
 }
@@ -475,7 +480,7 @@ DEPS="unzip curl jq squid openssl nc netcat xdg-utils libxss1 libappindicator1 l
 _wait_for_process_to_finish() {
     echo "Waiting for ${timeout_duration} for $1 to complete any running jobs..."
 
-    "$TIMEOUT" ${timeout_duration} bash -c 'while pgrep '"$1"' > /dev/null 2>&1; do printf .; sleep 5; done'
+    _timeout ${timeout_duration} bash -c 'while pgrep '"$1"' > /dev/null 2>&1; do printf .; sleep 5; done'
 }
 _ensure_tmp_dir_is_writeable() {
     # Attempt to set the appropriate perms, but continue if any of the operations fail
@@ -581,7 +586,7 @@ _set_mongod_vars() {
     if [[ "${PLATFORM}" = "windows" ]]; then # Cygwin
         MONGOD="$(_user_dir)/mongodb/bin/mongod.exe"
         MONGO="$(_user_dir)/mongodb/bin/mongo.exe"
-    elif [[ "${PLATFORM}" == "wsl" ]]; then # WSL
+    elif [[ "${PLATFORM}" = "wsl" ]]; then # WSL
         MONGOD="$(command -v mongod)"
         MONGO="$(command -v mongo)"
     else # Standard Linux x86_64
@@ -701,7 +706,7 @@ start_mongodb() {
     fi
 
     local bind_ip_option="--bind_ip ${bind_ip}"
-    if [[ "${bind_ip}" == "bind_ip_all" ]]; then
+    if [[ "${bind_ip}" = "bind_ip_all" ]]; then
         bind_ip="0.0.0.0"
         bind_ip_option="--bind_ip_all"
     fi
@@ -1007,7 +1012,7 @@ _install_ops_manager() {
 
     local ext="${local_file#*.}"
     
-    if [[ "${ext}" == "tgz" || "${ext}" == "tar.gz" ]]; then
+    if [[ "${ext}" = "tgz" || "${ext}" = "tar.gz" ]]; then
         # Using a tar.gz
         echo "TODO: tar.gz installs are not fully supported yet; aborting for now"
         echo
@@ -1610,7 +1615,7 @@ ops_manager_install_from_link() {
         upgrade="--upgrade"
     fi
 
-    if [[ "$upgrade" == "--upgrade" ]]; then
+    if [[ "$upgrade" = "--upgrade" ]]; then
         echo "Installing and starting the AppDB and Blockstore..."
         echo
 
@@ -1630,9 +1635,8 @@ ops_manager_install_from_link() {
     fi
 
     _download_ops_manager "$archive"
-    set -vx # todo: remove
 
-    if [[ "$upgrade" == "--upgrade" ]]; then
+    if [[ "$upgrade" = "--upgrade" ]]; then
         echo "This is an upgrade. Stopping any running Ops Manager services before proceeding with the install..."
         echo
         stop_ops_manager
@@ -1679,7 +1683,7 @@ ops_manager_start_from_tgz() {
     ENC_KEY_PATH="${TARGET_DIR}/etc/mongodb-mms/gen.key"
 
     # TODO: --config-flags
-    download_mongodb "${CONFIGDB_MDB_VERSION}"
+    download_mongodb "4.2.1"
     if ! is_local_port_open "${DEFAULT_MMS_MONGODB_PORT}"; then
         start_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
     fi
@@ -1779,7 +1783,7 @@ nohup() {
 
     echo "Uploading provisioning script to ${host}:${NOHUP_PROV_FILE}..."
     # shellcheck disable=SC2016,SC2086
-    "$SCP" "${ssh_opts[@]}" ${SSH_OPTS-} "${PROV}" "${host}:${NOHUP_PROV_FILE}"
+    _scp "${ssh_opts[@]}" ${SSH_OPTS-} "${PROV}" "${host}:${NOHUP_PROV_FILE}"
 
     echo "Executing provisioning script..."
     # shellcheck disable=SC2086
@@ -1804,19 +1808,19 @@ tail() {
     "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "${host}" "while [ ! -e \"${NOHUP_LOG_FILE}\" ]; do sleep 1; done; tail -n 500 -F \"${NOHUP_LOG_FILE}\" | while IFS= read line; do echo \$line; [ -e \"${NOHUP_PROV_FILE}.out\" ] && pkill tail; done"
     echo "Stopped tailing ${NOHUP_LOG_FILE} on ${host}..."
 }
-scp() {
+_scp() {
     # Print usage info
     if [[ "$#" -lt 2 ]]; then
-        echo "Usage: scp <source> <destination>"
+        echo "Usage: _scp <source> <destination>"
         echo
         exit 1
     fi
 
     # shellcheck disable=SC2016,SC2086
-    if ! "$SCP" "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "$2"; then
+    if ! scp "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "$2"; then
         # Retry once, with increased verbosity
         # shellcheck disable=SC2016,SC2086
-        "$SCP" -vvv "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "$2"
+        scp -vvv "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "$2"
     fi
 }
 
@@ -1829,7 +1833,7 @@ seed() {
     fi
 
     echo "Deploying ${SCRIPT} to $1..."
-    scp "${DIR}/${SCRIPT}" "$1:"
+    _scp "${DIR}/${SCRIPT}" "$1:"
 
     # shellcheck disable=SC2016
     exec_cmd='mkdir -p $HOME/bin; mv '${SCRIPT}' $HOME/bin/; $HOME/bin/'${SCRIPT}' link'
