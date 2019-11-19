@@ -540,7 +540,7 @@ resolve_system_dependencies() {
 
         echo "Installing JQ"
         pushd "$(_user_dir)" > /dev/null
-        _curl "${curl_opts}" --output "bin/jq.exe" "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-win64.exe"
+        _curl "${curl_opts}" -o "jq.exe" "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-win64.exe"
         popd > /dev/null
 
         return
@@ -631,12 +631,12 @@ download_mongodb() {
     if [[ "${PLATFORM}" = "windows" ]]; then
         archive="${root_download_url}/win32/${file_name}"
         echo "Downloading ${archive}..."
-        _curl "${curl_opts}" --output "${file_name}" "${archive}"
+        _curl "${curl_opts}" -o "${file_name}" "${archive}"
         unzip "${file_name}" > /dev/null
     else
         archive="${root_download_url}/linux/${file_name}"
         echo "Downloading ${archive}..."
-        _curl "${curl_opts[@]}" --output "${file_name}" "${archive}"
+        _curl "${curl_opts[@]}" -o "${file_name}" "${archive}"
         tar zxf "${file_name}"
     fi
 
@@ -647,7 +647,7 @@ download_mongodb() {
     rm -f "${file_name}"
     mdb_dir="${file_name%.*}"
     mv "${mdb_dir}" "${final_dir}"
-    echo "Downloaded ${archive} and deployed at ${final_dir} ..."
+    echo "Downloaded ${archive} and deployed at ${final_dir}..."
 
     # For enterprise builds, install the Visual Studio redistributable
     if [[ "${PLATFORM}" = "windows" ]] && echo "${file_name}" | grep -q "enterprise"; then
@@ -863,7 +863,8 @@ _download_ops_manager() {
     local local_file
     local_file="$(_get_mms_archive "$tgz")"
     echo "Downloading Ops Manager: ${archive} to ${local_file}..."
-    _curl "${curl_opts}" --output "${local_file}" "${archive}"
+    _curl "${curl_opts}" -o "${local_file}" "${archive}"
+    echo "Downloaded ${archive} to ${local_file}..."
     popd > /dev/null
 }
 _skip_ops_manager_registration_wizard() {
@@ -945,7 +946,7 @@ _install_ops_manager() {
     if [[ "${PLATFORM}" = "windows" ]]; then
         echo "Installing the VS2013 redistributable..."
         echo
-        _curl "${curl_opts}" --output vcredist_x64.exe https://download.microsoft.com/download/2/E/6/2E61CFA4-993B-4DD4-91DA-3737CD5CD6E3/vcredist_x64.exe
+        _curl "${curl_opts}" -o vcredist_x64.exe https://download.microsoft.com/download/2/E/6/2E61CFA4-993B-4DD4-91DA-3737CD5CD6E3/vcredist_x64.exe
         chmod +x vcredist_x64.exe
         ./vcredist_x64.exe /quiet /norestart || echo "VC redist 2013 for Ops Manager might already be installed..."
         rm -f vcredist_x64.exe
@@ -1022,7 +1023,7 @@ _uninstall_ops_manager() {
     INSTALLED_VERSION="$(_find_installed_package mongodb-mms)"
     
     if [[ $INSTALLED_VERSION == "" ]]; then
-        echo "'${INSTALLED_VERSION}'' is not present on this host. Skiping uninstall..."
+        echo "Ops Manager is not present on this host. Skiping uninstall..."
         echo
         return
     fi
@@ -1606,7 +1607,7 @@ ops_manager_start_from_tgz() {
 
     # Use the link provided (needed for builds)
     echo "Downloading Ops Manager: ${TGZ_LINK} to ${TARGET_TGZ}..."
-    _curl "${curl_opts}" --create-dirs --output "${TARGET_TGZ}" "${TGZ_LINK}"
+    _curl "${curl_opts}" -o "${TARGET_TGZ}" "${TGZ_LINK}"
 
     echo "Extracting tgz: ${TARGET_TGZ} to ${TARGET_DIR}..."
     tar -xzf "${TARGET_TGZ}" -C "${TARGET_DIR}" --strip-components 1

@@ -21,7 +21,7 @@ functions:
           fi
 
           # merge before checking
-          git merge --squash ${branch_name}
+          git merge ${branch_name}
 
   "link":
     - command: shell.exec
