@@ -41,14 +41,26 @@ functions:
           set -evx
           bin/ego ops_manager_install_package --version ${version} --mongodb-version ${mongodb_version}
 
-  "placeholder":
+  "uninstall ops manager":
     - command: shell.exec
       params:
         working_dir: src
         shell: bash
         script: |
           set -evx
-          echo "Placeholder: ${foobar}"
+          bin/ego ops_manager_uninstall
+
+  "clean":
+    - command: shell.exec
+      params:
+        working_dir: src
+        type: system
+        shell: bash
+        script: |
+          bin/ego ops_manager_clean
+
+post:
+  - func: clean
 
 tasks:
 - name: Ops Manager 4.2
@@ -62,6 +74,7 @@ tasks:
       vars:
         mongodb_version: 4.2.1
         version: 4.2.3
+    - func: "uninstall ops manager"
 
 buildvariants:
 - name: ubuntu

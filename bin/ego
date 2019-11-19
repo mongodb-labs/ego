@@ -1036,9 +1036,8 @@ _uninstall_ops_manager() {
         rpm -e "${INSTALLED_VERSION}"
 
     else
-        echo "Uninstalling (${INSTALLED_VERSION}) is not supported on Windows"
+        echo "Uninstalling (${INSTALLED_VERSION}) is not supported on Windows..."
         echo
-        _unsupported_distro
     fi
 }
 
@@ -1145,15 +1144,15 @@ stop_ops_manager() {
     fi
 
     echo "Stopping the Ops Manager service..."
+    set +e  # do not fail here
     if [[ "${PLATFORM}" = "windows" ]]; then # Windows
         net stop "MongoDB Backup Daemon Service"
         net stop "MongoDB Ops Manager HTTP Service"
 
     else # Standard Linux
-        set +e  # systemctl will return error code 3, but we don't want to fail here
         service_command stop mongodb-mms
-        set -e
     fi
+    set -e
 
     echo "Waiting for Ops Manager to stop..."
     wait_for_closed_local_port "${port}"
@@ -1415,23 +1414,25 @@ opsman_configure_ssl() {
 # #######################################################
 #                 MAIN Ops Manager actions
 # #######################################################
-
+ops_manager_uninstall() {
+    echo "Stopping and uninstalling the Ops Manager service..."
+    stop_ops_manager
+    _uninstall_ops_manager
+}
 ops_manager_clean() {
     echo "Stopping Ops Manager, the AppDB, and the Blockstore; also deleting data dirs..."
     echo
 
-    _set_mongod_vars
+    ops_manager_uninstall
 
-    echo "Stopping the Ops Manager service..."
-    set +o errexit
-    stop_ops_manager
-    set -o errexit
-
-    echo "Stopping the Ops Manager config DB..."
+    echo "Stopping the Ops Manager AppDB..."
     stop_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
 
     echo "Stopping the Ops Manager blockstore..."
     stop_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
+
+    echo "Uninstalling MongoDB..."
+    _uninstall_mongodb
 
     DBPATH="$(_user_dir)/${MONGOD_INSTALL_DIR}"
     echo "Removing all data from ${DBPATH}..."
@@ -1573,13 +1574,6 @@ ops_manager_upgrade_package() {
     _install_ops_manager --upgrade
 
     start_ops_manager ${skip_wait} ${skip_wait_daemon}
-}
-
-ops_manager_uninstall() {
-    stop_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
-    stop_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
-    _uninstall_mongodb
-    _uninstall_ops_manager
 }
 
 ops_manager_start_from_tgz() {
