@@ -314,7 +314,7 @@ aws_get_local_hostname() {
     _curl http://169.254.169.254/latest/meta-data/local-hostname
 }
 aws_get_public_ip() {
-    _curl --silent http://169.254.169.254/latest/meta-data/public-ipv4
+    _curl http://169.254.169.254/latest/meta-data/public-ipv4
 }
 service_command() {
     # Parameter check
@@ -489,12 +489,14 @@ _ensure_tmp_dir_is_writeable() {
 _install_dep() {
     # Parameter check
     if [[ "$#" -eq 0 ]]; then
-        echo "An package name was not specified!"
+        echo "A package name was not specified!"
         echo "Usage: _install_dep PACKAGE_NAME"
         echo
         exit 1
     fi
 
+    echo
+    echo "Installing dependency: '$1'..."
     if [[ "${PLATFORM}" = "debian" ]] || [[ ${PLATFORM} = "ubuntu" ]]; then # Debian/Ubuntu
         set +o errexit
         apt-get install -y -q "$1"
@@ -511,7 +513,7 @@ _install_dep() {
         set -o errexit
 
     else
-        echo "Could not install $1. Unsupported package manager or distribution!"
+        echo "Could not install '$1'; unsupported package manager or distribution!"
         echo
         _unsupported_distro
     fi
@@ -519,7 +521,8 @@ _install_dep() {
 resolve_system_dependencies() {
     _ensure_tmp_dir_is_writeable
 
-    # Update host system
+    echo "Resolving system dependencies..."
+    echo
     if [[ "${PLATFORM}" = "debian" ]] || [[ "${PLATFORM}" = "ubuntu" ]]; then # Debian/Ubuntu
         _wait_for_process_to_finish apt
         _wait_for_process_to_finish dpkg
@@ -806,7 +809,7 @@ _get_mms_archive() {
     if [ -f "$1" ]; then # file
         ext="${1##*/}" # get the file's name
         ext="${ext#*.}"  # get the file's extension
-    elif [[ "$1" == "http*" ]]; then # URL
+    elif [[ "$1" == http* ]]; then # URL
         ext="${1##*/}" # get the last path component
         if [[ "$ext" =~ ^.*tar\.gz$ ]]; then
             # handle .tar.gz separately, since it has two dots
@@ -1547,7 +1550,7 @@ ops_manager_install_version() {
     echo "Installing Ops Manager version: ${version}"
 
     _iptables_allow_all
-    _ensure_tmp_dir_is_writeable
+    resolve_system_dependencies
 
     echo "Searching for Ops Manager archive (version='${version}', tgz='$tgz')"
     local archive
