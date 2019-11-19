@@ -816,8 +816,8 @@ _release_archive_name() {
     echo "ops_manager_release_archive.$(date +%Y-%m-%d).json"
 }
 _ensure_release_archive() {
-    mkdir -p "$(_user_dir)/ego"
-    pushd "$(_user_dir)/ego" > /dev/null
+    mkdir -p "$(_user_dir)/.ego"
+    pushd "$(_user_dir)/.ego" > /dev/null
     if [ ! -f "$(_release_archive_name)" ]; then
         _curl "${curl_opts}" -o "$(_release_archive_name)" "https://info-mongodb-com.s3.amazonaws.com/com-download-center/ops_manager_release_archive.json"
     fi
@@ -843,7 +843,7 @@ _find_om_archive_by_version() {
         | .platform[] | select (.arch=="'"${ARCH}"'") 
         | select ( .package_format | contains("'"${PACKAGE_FORMAT}"'")) 
         | .packages.links[] | select(.name=="'"${FILE_TYPE}"'") 
-        | .download_link' < "$(_user_dir)/ego/$(_release_archive_name)")
+        | .download_link' < "$(_user_dir)/.ego/$(_release_archive_name)")
     echo "${result}"
 }
 _identify_installable_om_archive() {
@@ -891,9 +891,10 @@ _download_ops_manager() {
     fi
     local archive="$1"
 
-    pushd "$(_user_dir)" > /dev/null
     local local_file
     local_file="$(_get_mms_archive "${archive}")"
+
+    pushd "$(_user_dir)" > /dev/null
     echo "Downloading Ops Manager: ${archive} to ${local_file}..."
     _curl "${curl_opts}" -o "${local_file}" "${archive}"
     echo "Downloaded ${archive} to ${local_file}..."
@@ -1059,23 +1060,23 @@ _find_installed_package() {
 }
 _uninstall_ops_manager() {
     echo "Uninstalling Ops Manager..."
-    INSTALLED_VERSION="$(_find_installed_package mongodb-mms)"
+    installed_package="$(_find_installed_package mongodb-mms)"
     
-    if [[ -z "$INSTALLED_VERSION" ]]; then
+    if [[ -z "$installed_package" ]]; then
         echo "Ops Manager is not present on this host. Skiping uninstall..."
         echo
         return
     fi
 
-    echo "Uninstalling ${INSTALLED_VERSION}..."
+    echo "Uninstalling ${installed_package}..."
     if [[ "${PLATFORM}" = "debian" ]] || [[ ${PLATFORM} = "ubuntu" ]]; then # Debian/Ubuntu
-        dpkg -r "${INSTALLED_VERSION}"
+        dpkg -r "${installed_package}"
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux/SuSe
-        rpm -e "${INSTALLED_VERSION}"
+        rpm -e "${installed_package}"
 
     else
-        echo "Uninstalling (${INSTALLED_VERSION}) is not supported on Windows..."
+        echo "Uninstalling (${installed_package}) is not supported on Windows..."
         echo
     fi
 }
@@ -1455,6 +1456,9 @@ ops_manager_configure_ssl() {
         exit 1
     fi
 
+    echo "Configuring Ops Manager with SSL support..."
+    echo
+
     (
         echo ""
         echo "# SSL settings"
@@ -1537,8 +1541,11 @@ ops_manager_install_version() {
     _iptables_allow_all
     _ensure_tmp_dir_is_writeable
 
+    echo "Searching for binary download URL: ${version} ($tgz)"
     local archive
     archive="$(_identify_installable_om_archive --version "$version" "$tgz")"
+    echo "Found: $archive"
+    echo
 
     ops_manager_install_from_link --archive "$archive" \
                                   --mongodb-version "$mongodb_version" \
@@ -1578,18 +1585,22 @@ ops_manager_install_from_link() {
         exit 1
     fi
 
+    echo "Installing Ops Manager from: $archive"
+
     _iptables_allow_all
     resolve_system_dependencies
 
     local upgrade=
-    INSTALLED_VERSION="$(_find_installed_package mongodb-mms)"
-    if [[ -n "$INSTALLED_VERSION" ]]; then
-        # Found a previously installed version
+    installed_package="$(_find_installed_package mongodb-mms)"
+    if [[ -n "$installed_package" ]]; then
+        echo "Found a previously installed package: $installed_package"
+        echo "Performing an upgrade..."
+        echo
         upgrade="--upgrade"
     fi
 
     if [[ "$upgrade" == "--upgrade" ]]; then
-        echo "Installing and starting the AppDB and Blockstore"
+        echo "Installing and starting the AppDB and Blockstore..."
         echo
 
         download_mongodb "${mongodb_version}"
@@ -1597,16 +1608,21 @@ ops_manager_install_from_link() {
         if ! is_local_port_open "${DEFAULT_MMS_MONGODB_PORT}"; then
             start_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
         fi
+        echo "AppDB started!"
+        echo
 
         if ! is_local_port_open "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"; then
             start_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
         fi
+        echo "Blockstore started!"
+        echo
     fi
 
     _download_ops_manager "$archive"
     
     if [[ "$upgrade" == "--upgrade" ]]; then
-        # Stop Ops Manager before performing an upgrade
+        echo "This is an upgrade. Stopping any running Ops Manager services before proceeding with the install..."
+        echo
         stop_ops_manager
     fi
 
@@ -1619,6 +1635,7 @@ ops_manager_install_from_link() {
      # Configure SSL
     if [[ "${ssl}" -eq 1 && -n "${ssl_hostname}" ]]; then
         echo "Configuring Ops Manager with SSL for host ${ssl_hostname}..."
+        echo
         ssl_generate_server_certificate "${ssl_hostname}"
         ops_manager_configure_ssl "${ssl_hostname}"
     fi
