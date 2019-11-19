@@ -632,20 +632,21 @@ download_mongodb() {
         return
     fi
 
-    root_download_url="https://fastdl.mongodb.org"
+    local root_download_url="https://fastdl.mongodb.org"
     if echo "$1" | grep -q "ent"; then
         root_download_url="https://downloads.mongodb.com"
     fi
 
+    local file_name
     file_name=$(_mongodb_archive_name "$1")
     pushd "$(_user_dir)" > /dev/null
     if [[ "${PLATFORM}" = "windows" ]]; then
-        archive="${root_download_url}/win32/${file_name}"
+        local archive="${root_download_url}/win32/${file_name}"
         echo "Downloading ${archive}..."
         _curl "${curl_opts}" -o "${file_name}" "${archive}"
         unzip "${file_name}" > /dev/null
     else
-        archive="${root_download_url}/linux/${file_name}"
+        local archive="${root_download_url}/linux/${file_name}"
         echo "Downloading ${archive}..."
         _curl "${curl_opts[@]}" -o "${file_name}" "${archive}"
         tar zxf "${file_name}"
@@ -656,7 +657,7 @@ download_mongodb() {
 
     # Move database to final location
     rm -f "${file_name}"
-    mdb_dir="${file_name%.*}"
+    local mdb_dir="${file_name%.*}"
     mv "${mdb_dir}" "${final_dir}"
     echo "Downloaded ${archive} and deployed at ${final_dir}..."
 
@@ -727,7 +728,7 @@ start_mongodb() {
 
     # Start Mongod
     echo "Starting MongoDB on ${port}, binding on ${bind_ip}..."
-    extra_options="$*"
+    local extra_options="$*"
     if [[ "${PLATFORM}" = "windows" ]]; then
         # dbpath must be in Windows formatting for mongod to find it (it won't be resolved in cygwin)
         dbpath=$(cygpath --windows "$(_user_dir)/${MONGOD_INSTALL_DIR}/${port}")
@@ -1615,7 +1616,7 @@ ops_manager_install_from_link() {
         upgrade="--upgrade"
     fi
 
-    if [[ "$upgrade" = "--upgrade" ]]; then
+    if [[ -z "$upgrade" ]]; then
         echo "Installing and starting the AppDB and Blockstore..."
         echo
 
@@ -1623,14 +1624,17 @@ ops_manager_install_from_link() {
 
         if ! is_local_port_open "${DEFAULT_MMS_MONGODB_PORT}"; then
             start_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
+            echo "AppDB started!"
+            echo
         fi
-        echo "AppDB started!"
-        echo
 
         if ! is_local_port_open "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"; then
             start_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
+            echo "Blockstore started!"
+            echo
         fi
-        echo "Blockstore started!"
+
+        echo "The AppDB and Blockstore are running!"
         echo
     fi
 
@@ -1836,7 +1840,7 @@ seed() {
     _scp "${DIR}/${SCRIPT}" "$1:"
 
     # shellcheck disable=SC2016
-    exec_cmd='mkdir -p $HOME/bin; mv '${SCRIPT}' $HOME/bin/; $HOME/bin/'${SCRIPT}' link'
+    exec_cmd='mkdir -p $HOME/.ego/bin; mv '${SCRIPT}' $HOME/.ego/bin/; $HOME/.ego/bin/'${SCRIPT}' link'
 
     # shellcheck disable=SC2016,SC2086
     if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${exec_cmd}; then

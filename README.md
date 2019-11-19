@@ -2,8 +2,6 @@
 
 A *non-production* provisioning tool for installing [MongoDB Ops Manager](https://www.mongodb.com/products/ops-manager) on all supported Linux and Windows operating systems, in AWS.
 
-# Quick start
-
 "ego" is a Bash script which can perform various useful tasks related to Ops Manager (and dependencies)
 installs, upgrades, service management, etc.
 
@@ -16,16 +14,34 @@ It currently supports the following Operating Systems:
 - Windows 2012+ (w. Cygwin)
 
 At a high-level, it works as follows:
-1\. use another system (MCI, EVG, EC2, Azure, etc.) to spin up a VM
-2\. run 'ego seed user@host' to upload ego onto the target system
-3\. from there onwards, you can run any number of tasks (see below)
+1\. Provision a VM with AWS EC2 (or similar)
+2\. run 'ego seed user@host' to install ego onto the target system
+3\. from there onwards, you can run any number of tasks
+
+**Note:** ego assumes the user has sufficient permissions to assume root on the target system,
+as some actions require elevated privileges to complete.
 
 
-# Install
+# Quick start
+
+1\. Install ego locally
 
 ```shell
 curl -sL https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
 ```
+
+2\. Deploy ego in the target system
+
+```shell
+ego seed user@REMOTE_HOST
+```
+
+3\. Install Ops Manager
+
+```shell
+ego run user@REMOTE_HOST ego ops_manager_install_version --version 4.2.3 --mongodb-version 4.2.1
+```
+
 
 # LICENSE
 
