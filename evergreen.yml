@@ -57,6 +57,21 @@ functions:
         type: system
         shell: bash
         script: |
+          echo
+          echo "==> mms0.log"
+          cat /opt/mongodb/mms/logs/mms0.log
+          echo
+          echo "==> mms0.log"
+          cat /opt/mongodb/mms/logs/mms0-startup.log
+          echo
+          echo "==> mms0.log"
+          cat /opt/mongodb/mms/logs/mms-migration.log
+    - command: shell.exec
+      params:
+        working_dir: src
+        type: system
+        shell: bash
+        script: |
           bin/ego ops_manager_clean
 
 # Ensure the Evergreen host is clean
