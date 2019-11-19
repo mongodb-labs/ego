@@ -10,8 +10,10 @@ set -o errexit
 # Main logic:
 # These are probably the more useful abstractions, since they can be used to quickly set-up a new host and execute a desired
 # flow to either confirm that the E2E tests can be run against a custom build, or to simply provision a custom environment.
-# - ops_manager_install_package: Install the latest Ops Manager package, then start it; can be configured with SSL (Linux-only)
-# - ops_manager_package_from_link: Download and install the given Ops Manager package
+# - ops_manager_install_version: Installs the specified Ops Manager Version, then starts it
+#                                on Linux, SSL can also be configured
+# - ops_manager_install_from_link: Download and install the given Ops Manager package
+
 # - ops_manager_install_then_upgrade_package: Install the previous major Ops Manager version, then upgrade it to the latest one
 # - ops_manager_clean: Reset the environment to resemble a fresh Ops Manager install (delete AppDb and Blockstore data dir)
 # - ops_manager_start_from_tgz: Given an Ops Manager tgz, extract the files and start the service with the current user account
@@ -37,8 +39,8 @@ set -o errexit
 # - start_ops_manager/stop_ops_manager/restart_ops_manager: start/stop/restart ops manager (all platforms)
 # - network_access_restrict: restrict access to/from the current host (Linux-only, iptables) - useful for Local Mode testing
 # - configure_proxy: configure an HTTP proxy (Linux-only, squid) - useful for Ops Manager HTTP proxy configuration testing
-# - ssl_generate_server_certificates: generate Root CA and SSL certificates for a specified host - useful for Ops Manager with SSL testing
-# - opsman_configure_ssl: configure Ops Manager to start with SSL-enabled (Linux only)
+# - ssl_generate_server_certificate: generate Root CA and SSL certificates for a specified host - useful for Ops Manager with SSL testing
+# - ops_manager_configure_ssl: configure Ops Manager to start with SSL-enabled (Linux only)
 #
 # NOTE: Not all actions can be performed in all systems, due to various incompatibilities.
 #       Wherever this is the case, the script will alert you and in some cases stop execution altogether.
@@ -790,7 +792,24 @@ _get_mms_config_file() {
     fi
 }
 _get_mms_archive() {
-    echo "ops_manager.$1"
+    # Parameter check
+    if [[ "$#" -eq 0 ]]; then
+        echo "The first parameter should either be a file or an extension!"
+        echo "Usage: _get_mms_archive /path/to/file.tar.gz"
+        echo "Usage: _get_mms_archive tar.gz"
+        echo
+        exit 1
+    fi
+
+    local ext
+    if [ -f "$1" ]; then
+        ext="${1##*/}" # get the file's name
+        ext="${1#*.}"  # get the file's extension
+    else
+        ext="$1"
+    fi
+
+    echo "ops_manager.${ext}"
 }
 _release_archive_name() {
     echo "ops_manager_release_archive.$(date +%Y-%m-%d).json"
@@ -826,15 +845,7 @@ _find_om_archive_by_version() {
         | .download_link' < "$(_user_dir)/ego/$(_release_archive_name)")
     echo "${result}"
 }
-_download_ops_manager() {
-    # Parameter check
-    if [[ "$#" -eq 0 ]]; then
-        echo "A version was not supplied!"
-        echo "Usage: _download_ops_manager --version VERSION [--tgz]"
-        echo
-        exit 1
-    fi
-
+_identify_installable_om_archive() {
     local package_format
     if [[ "${PLATFORM}" = "windows" ]]; then
         package_format="msi"
@@ -846,7 +857,9 @@ _download_ops_manager() {
         package_format="rpm"
     fi
 
+    local tgz
     tgz="${package_format}"
+    local version
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --version) version="$2"; shift 2;;
@@ -855,13 +868,44 @@ _download_ops_manager() {
         esac
     done
 
+    # Parameter check
+    if [[ -z "$version" ]]; then
+        echo "A version was not supplied!"
+        echo "Usage: _identify_installable_om_archive --version VERSION [--tgz]"
+        echo
+        exit 1
+    fi
+
+    _find_om_archive_by_version "$version" "x86_64" "$package_format" "$tgz"
+}
+_download_ops_manager() {
+    # Parameter check
+    if [[ "$#" -eq 0 ]]; then
+        echo "A version was not supplied!"
+        echo "Usage: _download_ops_manager --version VERSION [--tgz]"
+        echo
+        exit 1
+    fi
+
+    local tgz
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --version) version="$2"; shift 2;;
+            --tgz) tgz="--tgz"; shift;;
+            * ) echo "Invalid configuration option: $1" ; exit 1 ;;
+        esac
+    done
+
     # Get the latest release archive and find the desired binary
-    pushd "$(_user_dir)" > /dev/null
     local archive
-    archive="$(_find_om_archive_by_version "$version" "x86_64" "$package_format" "$tgz")"
+    archive="$(_identify_installable_om_archive "$version" "$tgz")"
+
+    pushd "$(_user_dir)" > /dev/null
+    
+    #xxx: split into two functions to support installing from both link/archive
 
     local local_file
-    local_file="$(_get_mms_archive "$tgz")"
+    local_file="$(_get_mms_archive "${archive}")"
     echo "Downloading Ops Manager: ${archive} to ${local_file}..."
     _curl "${curl_opts}" -o "${local_file}" "${archive}"
     echo "Downloaded ${archive} to ${local_file}..."
@@ -935,15 +979,21 @@ _install_ops_manager() {
     pushd "$(_user_dir)" > /dev/null
 
     # Determine if this is an upgrade operation
-    local upgrade=1
+    local upgrade=0
     while [[ "$#" -gt 0 ]]; do
       case "$1" in
-        --upgrade) upgrade=0; shift ;;
+        --upgrade) upgrade=1; shift ;;
         * ) echo "Invalid install option: $1" ; exit 1 ;;
       esac
     done
 
     if [[ "${PLATFORM}" = "windows" ]]; then
+        if [ "${upgrade}" -eq 1 ]; then
+            echo "Upgrading Ops Manager on Windows is not supported"
+            echo
+            exit 1
+        fi
+        
         echo "Installing the VS2013 redistributable..."
         echo
         _curl "${curl_opts}" -o vcredist_x64.exe https://download.microsoft.com/download/2/E/6/2E61CFA4-993B-4DD4-91DA-3737CD5CD6E3/vcredist_x64.exe
@@ -985,7 +1035,7 @@ _install_ops_manager() {
         # Determine rpm command: install/upgrade
         declare -a rpm_flags
         rpm_flags[0]="-ivh" # install package
-        if [[ "${upgrade}" -eq 0 ]]; then
+        if [[ "${upgrade}" -eq 1 ]]; then
             rpm_flags[0]="-Uvh" # upgrade package
             rpm_flags[1]="--oldpackage" # allow old distros
         fi
@@ -997,7 +1047,6 @@ _install_ops_manager() {
 
     popd > /dev/null
 }
-
 _find_installed_package() {
     # Parameter check
     if [[ "$#" -eq 0 ]]; then
@@ -1022,7 +1071,7 @@ _uninstall_ops_manager() {
     echo "Uninstalling Ops Manager..."
     INSTALLED_VERSION="$(_find_installed_package mongodb-mms)"
     
-    if [[ $INSTALLED_VERSION == "" ]]; then
+    if [[ -z "$INSTALLED_VERSION" ]]; then
         echo "Ops Manager is not present on this host. Skiping uninstall..."
         echo
         return
@@ -1341,17 +1390,28 @@ configure_proxy() {
 # #######################################################
 #                           SSL
 # #######################################################
-ssl_generate_server_certificates() {
-    # Verify a hostname was specified
-    if [[ "$#" -eq 0 ]]; then
-        echo "A hostname was not specified!"
-        echo "Usage: ssl_generate_server_certificates HOSTNAME"
+ssl_generate_server_certificate() {
+    if [[ "$#" -eq 0 || -z "$1" ]]; then
+        ssl_hostname="$(aws_get_public_ip)"
+        echo "A hostname was not specified; defaulting to: ${ssl_hostname}"
+        echo
+    else
+        ssl_hostname="$1"
+    fi
+
+    if [[ "${PLATFORM}" = "windows" ]]; then # Windows
+        echo "Configuring SSL on Windows is not supported!"
         echo
         exit 1
     fi
-    SSL_SERVER_NAME=$1
 
-    echo "Generating root and ssl certs for ${SSL_SERVER_NAME}"
+    if [ -f "/etc/ssl/${ssl_hostname}.pem" ]; then
+        echo "A certificate for ${ssl_hostname} was already generated; will not regenerate..."
+        echo
+        return
+    fi
+
+    echo "Generating root and ssl certs for ${ssl_hostname}"
     echo
 
     # CREATE A ROOT CA
@@ -1363,10 +1423,10 @@ ssl_generate_server_certificates() {
     # Create the Certificate for the Ops Manager Server
     echo keyUsage=critical, digitalSignature, keyEncipherment > serverCertOpts
     echo extendedKeyUsage = serverAuth > serverCertOpts
-    openssl genrsa -out "${SSL_SERVER_NAME}.key" 2048
-    openssl req -new -key "${SSL_SERVER_NAME}.key" -out "${SSL_SERVER_NAME}.csr" -subj "/C=IE/ST=D/L=Dublin/O=DO NOT TRUST/OU=DO NOT TRUST SERVER/CN=${SSL_SERVER_NAME}"
-    openssl x509 -req -in "${SSL_SERVER_NAME}.csr" -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out "${SSL_SERVER_NAME}.crt" -days 365 -extfile serverCertOpts
-    cat "${SSL_SERVER_NAME}.crt" "${SSL_SERVER_NAME}.key" > "${SSL_SERVER_NAME}.pem"
+    openssl genrsa -out "${ssl_hostname}.key" 2048
+    openssl req -new -key "${ssl_hostname}.key" -out "${ssl_hostname}.csr" -subj "/C=IE/ST=D/L=Dublin/O=DO NOT TRUST/OU=DO NOT TRUST SERVER/CN=${ssl_hostname}"
+    openssl x509 -req -in "${ssl_hostname}.csr" -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out "${ssl_hostname}.crt" -days 365 -extfile serverCertOpts
+    cat "${ssl_hostname}.crt" "${ssl_hostname}.key" > "${ssl_hostname}.pem"
 
     # Print root CA info, as it will be needed to connect to the OM host from another machine
     echo "Root Certificate authority"
@@ -1377,37 +1437,45 @@ ssl_generate_server_certificates() {
 
     # Deploy certificates to system dir
     # shellcheck disable=SC2086
-    mv ${SSL_SERVER_NAME}.* rootCA.* /etc/ssl/
-    echo "SSL certificate deployed at:      /etc/ssl/${SSL_SERVER_NAME}.pem"
+    mv ${ssl_hostname}.* rootCA.* /etc/ssl/
+    echo "SSL certificate deployed at:      /etc/ssl/${ssl_hostname}.pem"
     echo "ROOT CA certificate deployed at:  /etc/ssl/rootCA.pem"
     echo
     popd > /dev/null
 }
-opsman_configure_ssl() {
-    # Verify a hostname was specified
-    if [[ "$#" -eq 0 ]]; then
-        echo "A hostname was not specified!"
-        echo "Usage: opsman_configure_ssl HOSTNAME"
+ops_manager_configure_ssl() {
+    if [[ "$#" -eq 0 || -z "$1" ]]; then
+        ssl_hostname="$(aws_get_public_ip)"
+        echo "A hostname was not specified; defaulting to: ${ssl_hostname}"
+        echo
+    else
+        ssl_hostname="$1"
+    fi
+
+    if [[ "${PLATFORM}" = "windows" ]]; then # Windows
+        echo "Configuring SSL on Windows is not supported!"
         echo
         exit 1
     fi
 
     local pem_file
-    pem_file="/etc/ssl/$1.pem"
+    pem_file="/etc/ssl/${ssl_hostname}.pem"
     if [ ! -f "${pem_file}" ]; then
         echo "Could not find SSL certificate at: ${pem_file}; stopping"
         echo
         exit 1
     fi
 
-    echo ""                                                | tee -a "$(_get_mms_config_file)"
-    echo "# SSL settings"                                  | tee -a "$(_get_mms_config_file)"
-    echo "mms.centralUrl=https://$1:${MMS_SSL_PORT}"       | tee -a "$(_get_mms_config_file)"
-    echo "mms.https.PEMKeyFile=${pem_file}"                | tee -a "$(_get_mms_config_file)"
-    if [ -f /etc/ssl/rootCA.pem ]; then
-        echo "mms.https.CAFile=/etc/ssl/rootCA.pem"        | tee -a "$(_get_mms_config_file)"
-    fi
-    echo ""                                                | tee -a "$(_get_mms_config_file)"
+    (
+        echo ""
+        echo "# SSL settings"
+        echo "mms.centralUrl=https://${ssl_hostname}:${MMS_SSL_PORT}"
+        echo "mms.https.PEMKeyFile=${pem_file}"
+        if [ -f /etc/ssl/rootCA.pem ]; then
+            echo "mms.https.CAFile=/etc/ssl/rootCA.pem"
+        fi
+        echo ""
+    ) | tee -a "$(_get_mms_config_file)"
 }
 
 
@@ -1441,21 +1509,32 @@ ops_manager_clean() {
     echo "The Ops Manager environment was reset."
     echo
 }
-ops_manager_install_package() {
-    local central_url="http://localhost:${MMS_PORT}"
-    local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
+ops_manager_install_version() {
+    _usage() {
+        echo
+        echo 'Options:'
+        echo '  --version <version>           The Ops Manager version to install'
+        echo '  --tgz                         Use a tar.gz instead of a pre-packaged binary'
+        echo '  --mongodb-version <version>   The MongoDB version to use for AppDB'
+        echo '  --central-url <uri>           Ops Manager central url'
+        echo '  --ssl                         Generate and deploy an SSL certificate and configure Ops Manager to use it'
+    }
+    
     local version
     local mongodb_version
+    local central_url="http://localhost:${MMS_PORT}"
+    local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
     local ssl=0
-    local hostname=
+    local ssl_hostname=
+    local tgz=""
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --version) version=$2; shift 2 ;;
-            --mongodb-version) mongodb_version=$2; shift 2 ;;
+            --mongodb-version) mongodb_version=${2-}; shift 2 ;;
             --central-url) central_url=$2; shift 2 ;;
-            --appdb-url) appdb_url=$2; shift 2 ;;
-            --ssl) ssl=1; hostname=$2; shift 2 ;;
-            * ) echo "Invalid option for install scenario $1"; return 1 ;;
+            --ssl) ssl=1; ssl_hostname=${2-}; shift 2 ;;
+            --tgz) tgz="--tgz"; shift ;;
+            * ) echo "Invalid configuration option: $1"; return 1 ;;
         esac
     done
 
@@ -1464,33 +1543,55 @@ ops_manager_install_package() {
     _iptables_allow_all
     _ensure_tmp_dir_is_writeable
 
-    download_mongodb "${mongodb_version}"
-    _download_ops_manager --version "${version}"
-    _install_ops_manager
+    local upgrade
+    INSTALLED_VERSION="$(_find_installed_package mongodb-mms)"
+    if [[ -n "$INSTALLED_VERSION" ]]; then
+        # Found a previously installed version
+        upgrade="--upgrade"
+    fi
+
+    if [[ "$upgrade" == "--upgrade" ]]; then
+        echo "Installing and starting the AppDB and Blockstore"
+        echo
+
+        download_mongodb "${mongodb_version}"
+
+        if ! is_local_port_open "${DEFAULT_MMS_MONGODB_PORT}"; then
+            start_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
+        fi
+
+        if ! is_local_port_open "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"; then
+            start_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
+        fi
+    fi
+
+    _download_ops_manager --version "${version}" "${tgz}"
+    
+    if [[ "$upgrade" == "--upgrade" ]]; then
+        # Stop Ops Manager before performing an upgrade
+        stop_ops_manager
+    fi
+
+    _install_ops_manager "$upgrade"
 
     _configure_ops_manager --skip-registration-wizard \
                           --central-url "${central_url}" \
                           --appdb-url "${appdb_url}"
 
      # Configure SSL
-    if [[ "${ssl}" -eq 1 && -n "${hostname}" ]]; then
-        echo "Configuring Ops Manager with SSL for host ${hostname}..."
-        ssl_generate_server_certificates "${hostname}"
-        opsman_configure_ssl "${hostname}"
+    if [[ "${ssl}" -eq 1 && -n "${ssl_hostname}" ]]; then
+        echo "Configuring Ops Manager with SSL for host ${ssl_hostname}..."
+        ssl_generate_server_certificate "${ssl_hostname}"
+        ops_manager_configure_ssl "${ssl_hostname}"
     fi
 
-    if ! is_local_port_open "${DEFAULT_MMS_MONGODB_PORT}"; then
-        start_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
-    fi
-    if ! is_local_port_open "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"; then
-        start_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
-    fi
+    # Start the service
     start_ops_manager
 }
 
 # TODO: continue reviewing from here
 # TODO: accept a LINK, verify that extension matches
-ops_manager_install_package_from_link() {
+ops_manager_install_from_link() {
     _usage() {
         echo
         echo '  --url <package>                               Specify the url to download OM from '
@@ -1502,7 +1603,6 @@ ops_manager_install_package_from_link() {
     local central_url="http://localhost:${MMS_PORT}"
     local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
     local url=
-    local hostname=
     local encrypted_credentials=()
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
@@ -1510,7 +1610,7 @@ ops_manager_install_package_from_link() {
             --central-url) central_url=$2; shift 2 ;;
             --appdb-url) appdb_url=$2; shift 2 ;;
             --encrypted-credentials) encrypted_credentials=('--encrypted-credentials' "$2" "$3"); shift 3;;
-            * ) echo "Invalid option for install scenario $1"; _usage; return 1 ;;
+            * ) echo "Invalid configuration option: $1"; _usage; return 1 ;;
         esac
     done
 
