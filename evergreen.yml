@@ -61,19 +61,19 @@ functions:
           
           echo "==>"
           echo "==> mms-migration.log"
-          cat /opt/mongodb/mms/logs/mms-migration.log
+          cat /opt/mongodb/mms/logs/mms-migration.log || echo "No logs found."
 
           echo "==>"
           echo "==> mms0-startup.log"
-          cat /opt/mongodb/mms/logs/mms0-startup.log
+          cat /opt/mongodb/mms/logs/mms0-startup.log || echo "No logs found."
 
           echo "==>"
           echo "==> daemon.log"
-          cat /opt/mongodb/mms/logs/daemon.log
+          cat /opt/mongodb/mms/logs/daemon.log || echo "No logs found."
 
           echo "==>"
           echo "==> mms0.log"
-          cat /opt/mongodb/mms/logs/mms0.log          
+          cat /opt/mongodb/mms/logs/mms0.log || echo "No logs found."
 
     - command: shell.exec
       params:

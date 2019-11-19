@@ -504,17 +504,17 @@ _install_dep() {
     echo "Installing dependency: '$1'..."
     if [[ "${PLATFORM}" = "debian" ]] || [[ ${PLATFORM} = "ubuntu" ]]; then # Debian/Ubuntu
         set +o errexit
-        apt-get install -y -q "$1"
+        ( apt-get install -y -q "$1" && echo "Installed $1" ) || echo "Skipping $1"
         set -o errexit
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]]; then # Red Hat / Amazon Linux
         set +o errexit
-        yum install -y -q "$1"
+        ( yum install -y -q "$1" && echo "Installed $1" ) || echo "Skipping $1"
         set -o errexit
 
     elif [[ "${PLATFORM}" = "suse" ]]; then # SuSe
         set +o errexit
-        zypper -n -q install --details -- "$1"
+        ( zypper -n -q install --details -- "$1" && echo "Installed $1" ) || echo "Skipping $1"
         set -o errexit
 
     else
