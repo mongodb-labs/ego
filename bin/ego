@@ -985,7 +985,7 @@ _install_ops_manager() {
       case "$1" in
         --upgrade) upgrade=1; shift ;;
         --archive) archive="$2"; shift 2;;
-        * ) echo "Invalid install option: $1" ; exit 1 ;;
+        * ) echo "Invalid configuration option: '$1'" ; exit 1 ;;
       esac
     done
 
@@ -1638,7 +1638,7 @@ ops_manager_install_from_link() {
         stop_ops_manager
     fi
 
-    _install_ops_manager --archive "$archive" "$upgrade"
+    _install_ops_manager --archive "$archive" $upgrade
 
     _configure_ops_manager --skip-registration-wizard \
                           --central-url "${central_url}" \
