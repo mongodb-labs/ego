@@ -847,9 +847,6 @@ _find_om_archive_by_version() {
     echo "${result}"
 }
 _identify_installable_om_archive() {
-    # TODO remove debug
-    set -vx
-    echo "$*"
     local package_format=
     if [[ "${PLATFORM}" = "windows" ]]; then
         package_format="msi"
@@ -870,7 +867,7 @@ _identify_installable_om_archive() {
         case "$1" in
             --version) version="$2"; shift 2;;
             --tgz) tgz="tar.gz"; shift;;
-            * ) echo "Invalid configuration option: $1" ; exit 1 ;;
+            * ) echo "Invalid configuration option: '$1'" ; exit 1 ;;
         esac
     done
 
@@ -963,7 +960,7 @@ _configure_ops_manager() {
             --skip-registration-wizard) _skip_ops_manager_registration_wizard; shift;;
             --appdb-url) replace_property_in_file "$(_get_mms_config_file)" "mongo.mongoUri" "$2"; shift 2;;
             --central-url) replace_property_in_file "$(_get_mms_config_file)" "mms.centralUrl" "$2"; shift 2;;
-            * ) echo "Invalid configuration option: $1" ; exit 1 ;;
+            * ) echo "Invalid configuration option: '$1'" ; exit 1 ;;
         esac
     done
 }
@@ -1528,7 +1525,7 @@ ops_manager_install_version() {
             --central-url) central_url="${2-}"; shift 2 ;;
             --ssl) ssl_hostname="${2-}"; shift 2 ;;
             --tgz) tgz="--tgz"; shift ;;
-            * ) echo "Invalid configuration option: $1"; return 1 ;;
+            * ) echo "Invalid configuration option: '$1'"; return 1 ;;
         esac
     done
 
@@ -1546,7 +1543,7 @@ ops_manager_install_version() {
 
     echo "Searching for Ops Manager archive (version='${version}', tgz='$tgz')"
     local archive
-    archive="$(_identify_installable_om_archive --version "$version" "$tgz")"
+    archive="$(_identify_installable_om_archive --version "$version" $tgz)"
     echo "Found: $archive"
     echo
 
@@ -1577,7 +1574,7 @@ ops_manager_install_from_link() {
             --mongodb-version) mongodb_version="${2-}"; shift 2 ;;
             --central-url) central_url="${2-}"; shift 2 ;;
             --ssl) ssl=1; ssl_hostname="${2-}"; shift 2 ;;
-            * ) echo "Invalid configuration option: $1"; return 1 ;;
+            * ) echo "Invalid configuration option: '$1'"; return 1 ;;
         esac
     done
 
