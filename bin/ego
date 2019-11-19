@@ -1630,7 +1630,8 @@ ops_manager_install_from_link() {
     fi
 
     _download_ops_manager "$archive"
-    
+    set -vx # todo: remove
+
     if [[ "$upgrade" == "--upgrade" ]]; then
         echo "This is an upgrade. Stopping any running Ops Manager services before proceeding with the install..."
         echo
