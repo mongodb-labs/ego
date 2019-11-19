@@ -59,6 +59,11 @@ functions:
         script: |
           bin/ego ops_manager_clean
 
+# Ensure the Evergreen host is clean
+pre:
+  - func: clean
+
+# Leave nothing behind
 post:
   - func: clean
 

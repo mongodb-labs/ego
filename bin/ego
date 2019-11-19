@@ -795,7 +795,7 @@ _get_mms_config_file() {
 _get_mms_archive() {
     # Parameter check
     if [[ "$#" -eq 0 ]]; then
-        echo "The first parameter should either be a file or an extension!"
+        echo "The first parameter should either be a file, URL, or an extension!"
         echo "Usage: _get_mms_archive /path/to/file.tar.gz"
         echo "Usage: _get_mms_archive tar.gz"
         echo
@@ -803,10 +803,18 @@ _get_mms_archive() {
     fi
 
     local ext
-    if [ -f "$1" ]; then
+    if [ -f "$1" ]; then # file
         ext="${1##*/}" # get the file's name
-        ext="${1#*.}"  # get the file's extension
-    else
+        ext="${ext#*.}"  # get the file's extension
+    elif [[ "$1" == "http*" ]]; then # URL
+        ext="${1##*/}" # get the last path component
+        if [[ "$ext" =~ ^.*tar\.gz$ ]]; then
+            # handle .tar.gz separately, since it has two dots
+            ext="tar.gz"
+        else
+            ext="${ext##*.}" # get the last extension part
+        fi
+    else # extension
         ext="$1"
     fi
 
