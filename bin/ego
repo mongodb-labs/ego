@@ -847,7 +847,6 @@ _find_om_archive_by_version() {
     echo "${result}"
 }
 _identify_installable_om_archive() {
-    set -vx
     local package_format
     if [[ "${PLATFORM}" = "windows" ]]; then
         package_format="msi"
@@ -861,9 +860,11 @@ _identify_installable_om_archive() {
         _unsupported_distro
     fi
 
+    set -vx
     local tgz
     tgz="${package_format}"
     local version
+    echo "$*"
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --version) version="$2"; shift 2;;
@@ -1514,8 +1515,8 @@ ops_manager_install_version() {
     local version
     local mongodb_version
     local central_url
-    local ssl_hostname=
-    local tgz=""
+    local ssl_hostname
+    local tgz
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --version) version="${2-}"; shift 2 ;;
