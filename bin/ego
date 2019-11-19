@@ -796,6 +796,7 @@ _release_archive_name() {
     echo "ops_manager_release_archive.$(date +%Y-%m-%d).json"
 }
 _ensure_release_archive() {
+    mkdir -p "$(_user_dir)/ego"
     pushd "$(_user_dir)/ego" > /dev/null
     if [ ! -f "$(_release_archive_name)" ]; then
         _curl "${curl_opts}" -o "$(_release_archive_name)" "https://info-mongodb-com.s3.amazonaws.com/com-download-center/ops_manager_release_archive.json"
@@ -1585,7 +1586,6 @@ ops_manager_start_from_tgz() {
     fi
 
     # TODO: _download_ops_manager --version "${version}" --tgz
-    
     # Determine args
     TGZ_LINK="$1"
     BASE_HOST="$2"
