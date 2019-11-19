@@ -2,7 +2,6 @@
 
 set -o nounset
 set -o errexit
-set -vx
 
 # Naming convention:
 # - public_function: these can be executed via "ego public_function param1 [param2] ..."
@@ -562,7 +561,7 @@ _user_dir() {
     fi
 }
 _curl() {
-    $(command -v curl) "$@"
+    $(command -v curl || echo "curl") "$@"
 }
 link() {
     # Link the script to make it available for running
@@ -819,7 +818,7 @@ _find_om_archive_by_version() {
     FILE_TYPE="$4"
     
     local result
-    result=$(jq -c '.currentReleases[], .oldReleases[] 
+    result=$(jq -r -c '.currentReleases[], .oldReleases[] 
         | select( .version | contains("'"${VERSION}"'")) 
         | .platform[] | select (.arch=="'"${ARCH}"'") 
         | select ( .package_format | contains("'"${PACKAGE_FORMAT}"'")) 
