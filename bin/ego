@@ -847,6 +847,9 @@ _find_om_archive_by_version() {
     echo "${result}"
 }
 _identify_installable_om_archive() {
+    # TODO remove debug
+    set -vx
+    echo "$*"
     local package_format=
     if [[ "${PLATFORM}" = "windows" ]]; then
         package_format="msi"
@@ -862,7 +865,7 @@ _identify_installable_om_archive() {
 
     local version=
     local tgz="${package_format}"
-    echo "$*"
+
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --version) version="$2"; shift 2;;
@@ -1541,7 +1544,7 @@ ops_manager_install_version() {
     _iptables_allow_all
     _ensure_tmp_dir_is_writeable
 
-    echo "Searching for binary download URL: ${version} ($tgz)"
+    echo "Searching for Ops Manager archive (version='${version}', tgz='$tgz')"
     local archive
     archive="$(_identify_installable_om_archive --version "$version" "$tgz")"
     echo "Found: $archive"
