@@ -471,7 +471,7 @@ replace_property_in_file() {
 #                SYSTEM/TEST DEPENDENCIES
 # #######################################################
 
-DEPS="unzip curl jq squid openssl nc xdg-utils libxss1 libappindicator1 libindicator7 fonts-liberation libappindicator3-1 libdbusmenu-gtk3-4 libssl1.0-dev"
+DEPS="unzip curl jq squid openssl nc netcat xdg-utils libxss1 libappindicator1 libindicator7 fonts-liberation libappindicator3-1 libdbusmenu-gtk3-4 libssl1.0-dev"
 _wait_for_process_to_finish() {
     echo "Waiting for ${timeout_duration} for $1 to complete any running jobs..."
 
