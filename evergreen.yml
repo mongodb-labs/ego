@@ -14,33 +14,140 @@ functions:
         working_dir: src
         shell: bash
         script: |
-          set -vx
           # exit if non-patch or this is not a pull request
-          if [[ "${is_patch}" != "true" || -z "${github_pr_number}"]]; then
+          if [[ "${is_patch}" != "true" || -z "${github_pr_number}" ]]; then
             exit 0
           fi
 
           # merge before checking
-          git merge --squash ${branch_name}
+          git merge ${branch_name}
 
-  "placeholder":
+  "link":
     - command: shell.exec
       params:
         working_dir: src
         shell: bash
         script: |
-          set -evx
-          echo "Placeholder: ${foobar}"
+          set -e
+          bin/ego link
+
+  "install ops manager":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -e
+          bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version}
+
+  "uninstall ops manager":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -e
+          bin/ego ops_manager_uninstall
+
+  "clean":
+    - command: shell.exec
+      params:
+        working_dir: src
+        type: system
+        shell: bash
+        script: |
+          echo "Outputting Ops Manager logs:"
+          
+          echo "==>"
+          echo "==> mms-migration.log"
+          cat /opt/mongodb/mms/logs/mms-migration.log || echo "No logs found."
+
+          echo "==>"
+          echo "==> mms0-startup.log"
+          cat /opt/mongodb/mms/logs/mms0-startup.log || echo "No logs found."
+
+          echo "==>"
+          echo "==> daemon.log"
+          cat /opt/mongodb/mms/logs/daemon.log || echo "No logs found."
+
+          echo "==>"
+          echo "==> mms0.log"
+          cat /opt/mongodb/mms/logs/mms0.log || echo "No logs found."
+
+    - command: shell.exec
+      params:
+        working_dir: src
+        type: system
+        shell: bash
+        script: |
+          bin/ego ops_manager_clean
+
+# Ensure the Evergreen host is clean
+pre:
+  - func: clean
+
+# Leave nothing behind
+post:
+  - func: clean
 
 tasks:
-- name: INSTALL
-  depends_on: []
+- name: Install Ops Manager 4.0
+  tags:
+    - install
   commands:
     - func: "fetch source"
     - func: "merge in base branch"
-    - func: "placeholder"
+    - func: "link"
+    - func: "install ops manager"
       vars:
-        foobar: "TESTING: ONE"
+        mongodb_version: 4.0.13
+        version: 4.0.16
+    - func: "uninstall ops manager"
+
+- name: Install Ops Manager 4.2
+  tags:
+    - install
+  commands:
+    - func: "fetch source"
+    - func: "merge in base branch"
+    - func: "link"
+    - func: "install ops manager"
+      vars:
+        mongodb_version: 4.2.1
+        version: 4.2.3
+    - func: "uninstall ops manager"
+
+- name: Install Ops Manager 4.3
+  tags:
+    - install
+  commands:
+    - func: "fetch source"
+    - func: "merge in base branch"
+    - func: "link"
+    - func: "install ops manager"
+      vars:
+        mongodb_version: 4.2.1
+        version: 4.3.2
+    - func: "uninstall ops manager"
+
+- name: Upgrade Ops Manager 4.0->4.2->4.3
+  tags:
+    - upgrade
+  commands:
+    - func: "fetch source"
+    - func: "merge in base branch"
+    - func: "link"
+    - func: "install ops manager"
+      vars:
+        mongodb_version: 4.0.13
+        version: 4.0.16
+    - func: "install ops manager"
+      vars:
+        version: 4.2.2
+    - func: "install ops manager"
+      vars:
+        version: 4.3.2
+    - func: "uninstall ops manager"
 
 buildvariants:
 - name: ubuntu
@@ -49,4 +156,5 @@ buildvariants:
   - ubuntu1804-build
   expansions:
   tasks:
-  - name: INSTALL
+  - name: .install
+  - name: .upgrade
