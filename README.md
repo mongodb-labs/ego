@@ -28,6 +28,8 @@ as some actions require elevated privileges to complete.
 
 ```shell
 curl -sL https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
+# or
+wget -qO- https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
 ```
 
 2\. Deploy ego in the target system
