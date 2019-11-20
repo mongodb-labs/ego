@@ -91,7 +91,7 @@ post:
   - func: clean
 
 tasks:
-- name: Install Ops Manager 4.0
+- name: INSTALL_OPS_MANAGER_4.0
   tags:
     - install
   commands:
@@ -104,7 +104,7 @@ tasks:
         version: 4.0.16
     - func: "uninstall ops manager"
 
-- name: Install Ops Manager 4.2
+- name: INSTALL_OPS_MANAGER_4.2
   tags:
     - install
   commands:
@@ -117,7 +117,7 @@ tasks:
         version: 4.2.3
     - func: "uninstall ops manager"
 
-- name: Install Ops Manager 4.3
+- name: INSTALL_OPS_MANAGER_4.3
   tags:
     - install
   commands:
@@ -130,7 +130,7 @@ tasks:
         version: 4.3.2
     - func: "uninstall ops manager"
 
-- name: Upgrade Ops Manager 4.0 to 4.2 and 4.3
+- name: INSTALL_4.0-UPGRADE_4.2-UPGRADE_4.3
   tags:
     - upgrade
   commands:
