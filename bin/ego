@@ -932,9 +932,21 @@ _skip_ops_manager_registration_wizard() {
 _configure_ops_manager() {
     _set_mongod_vars
 
+    local 
+    if [[ "${PLATFORM}" = "windows" ]]; then
+        base_install_dir="C:\\\\MMSData"
+    else
+        base_install_dir="${DEFAULT_MMS_DIR}"
+    fi
+
+    # Replace the default dir, if a valid one was specified
+    if [[ "$#" -ne 0 && -d "$1" ]]; then
+        base_install_dir="$1"
+    fi
+
     echo "Configuring Ops Manager..."
     if [[ "${PLATFORM}" = "windows" ]]; then
-        replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "C:\\\\MMSData\\\\BackupData\\\\"
+        replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "${base_install_dir}\\\\BackupData\\\\"
 
         # Forward the ports if not using default values
         # Solution taken from: https://stackoverflow.com/questions/11525703/port-forwarding-in-windows
@@ -945,30 +957,29 @@ _configure_ops_manager() {
             netsh interface portproxy add v4tov4 listenport="${MMS_SSL_PORT}" listenaddress=0.0.0.0 connectport=8443 connectaddress="$(aws_get_local_ip)"
         fi
 
-        AUTOMATION_RELEASE_DIR="C:\\MMSData\\MongoDBReleases"
-
         # Force the automation release dir (expected by E2E tests)
         # NOTE: This value needs to match what is defined by the E2E tests, otherwise the OnPrem Generic E2E tests will fail
-        replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "C:\\\\MMSData\\\\MongoDBReleases\\\\"
+        replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "${base_install_dir}\\\\MongoDBReleases\\\\"
 
     else
         # Configure backup head
-        mkdir -p /head
-        chown mongodb-mms:mongodb-mms /head
-        replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "/head/"
+        local backup_dir="${base_install_dir}/head"
+        mkdir -p "${backup_dir}"
+        chown mongodb-mms:mongodb-mms "${backup_dir}"
+        replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "${backup_dir}"
 
         # Configure ports
-        replace_property_in_file "${DEFAULT_MMS_DIR}/conf/mms.conf" "BASE_PORT" "${MMS_PORT}"
-        replace_property_in_file "${DEFAULT_MMS_DIR}/conf/mms.conf" "BASE_SSL_PORT" "${MMS_SSL_PORT}"
+        replace_property_in_file "${base_install_dir}/conf/mms.conf" "BASE_PORT" "${MMS_PORT}"
+        replace_property_in_file "${base_install_dir}/conf/mms.conf" "BASE_SSL_PORT" "${MMS_SSL_PORT}"
 
         # Define and create the release automation dir, if not defined
-        AUTOMATION_RELEASE_DIR="/data/automation/mongodb-releases/"
-        mkdir -p "${AUTOMATION_RELEASE_DIR}"
-        chmod -R 0777 "${AUTOMATION_RELEASE_DIR}"
+        local automation_release_dir="${base_install_dir}/mongodb-releases/"
+        mkdir -p "${automation_release_dir}"
+        chmod -R 0777 "${automation_release_dir}"
 
         # Force the automation release dir (expected by E2E tests)
         # NOTE: This value needs to match what is defined by the E2E tests, otherwise the OnPrem Generic E2E tests will fail
-        replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "${AUTOMATION_RELEASE_DIR}"
+        replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "${automation_release_dir}"
     fi
 
     # Extra properties
@@ -980,6 +991,19 @@ _configure_ops_manager() {
             * ) echo "Invalid configuration option: '$1'" ; exit 1 ;;
         esac
     done
+}
+_is_tgz() {
+    local local_file
+    local_file="$(_get_mms_archive "$1")"
+    local ext="${local_file#*.}"
+    if [[ "${ext}" = "tgz" || "${ext}" = "tar.gz" ]]; then
+        return 0 # true
+    else
+        return 1 # false
+    fi
+}
+_get_tgz_install_dir() {
+    echo "${HOME}/mongodb-mms"
 }
 _install_ops_manager() {
     pushd "$(_user_dir)" > /dev/null
@@ -1011,13 +1035,19 @@ _install_ops_manager() {
         exit 1
     fi
 
-    local ext="${local_file#*.}"
-    
-    if [[ "${ext}" = "tgz" || "${ext}" = "tar.gz" ]]; then
+    if _is_tgz "${archive}"; then
         # Using a tar.gz
         echo "TODO: tar.gz installs are not fully supported yet; aborting for now"
         echo
         exit 1
+
+        local install_dir
+        install_dir="$(_get_tgz_install_dir)"
+        mkdir -p "${install_dir}"
+        local enc_key_path="${install_dir}/etc/gen.key"
+        
+        echo "Extracting tgz: ${local_file} to ${install_dir}..."
+        tar -xzf "${local_file}" -C "${install_dir}" --strip-components 1
 
     elif [[ "${PLATFORM}" = "windows" ]]; then
         if [ "${upgrade}" -eq 1 ]; then
@@ -1128,10 +1158,12 @@ start_ops_manager() {
 
     local do_not_wait_for_port=0
     local do_not_wait_for_daemon=0
+    local archive=
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --skip-waiting-for-service-start) do_not_wait_for_port=1 ; shift ;;
             --skip-waiting-for-daemon) do_not_wait_for_daemon=1 ; shift ;;
+            --archive) archive="$2"; shift 2;;
             * ) echo "Invalid start option: $1" ; exit 1 ;;
         esac
     done
@@ -1148,8 +1180,19 @@ start_ops_manager() {
         return
     fi
 
-    echo "Starting the Ops Manager and Backup Daemon services..."
+    if _is_tgz "${archive}"; then
+        if [ ! -f "${enc_key_path}" ]; then
+            echo "Generating a new Encryption Key: ${enc_key_path}..."
+            "${install_dir}"/bin/mms-gen-key -f "${enc_key_path}"
+        fi
+
+        echo "Starting Ops Manager as the current user (${USER})..."
+        install_dir="$(_get_tgz_install_dir)"
+        nohup "${install_dir}"/bin/start-mongodb-mms --enc-key-path "${enc_key_path}" &
+    fi
+
     if [[ "${PLATFORM}" = "windows" ]]; then # Windows
+        echo "Starting Ops Manager..."
         net start "MongoDB Ops Manager HTTP Service"
 
         if [[ "${do_not_wait_for_port}" -eq 0 ]]; then
@@ -1158,6 +1201,7 @@ start_ops_manager() {
             echo "Ops Manager is running."
         fi
 
+        echo "Starting the Backup Daemon..."
         net start "MongoDB Backup Daemon Service"
 
         if [[ "${do_not_wait_for_daemon}" -eq 0 ]]; then
@@ -1167,6 +1211,7 @@ start_ops_manager() {
         fi
 
     else # Standard Linux
+        echo "Starting Ops Manager and the Backup Daemon..."
         service_command start mongodb-mms
 
         if [[ "${do_not_wait_for_port}" -eq 0 ]]; then
@@ -1661,75 +1706,10 @@ ops_manager_install_from_link() {
     fi
 
     # Start the service
-    start_ops_manager
+    start_ops_manager --archive "$archive"
 }
 
 # TODO: continue reviewing from here
-# TODO: merge into previous method
-ops_manager_start_from_tgz() {
-    if [[ "$#" -lt 2 ]]; then
-        echo "Invalid call: 'ops_manager_start_from_tgz $*'"
-        echo "Usage: ops_manager_start_from_tgz TGZ_LINK BASE_HOST BASE_PORT"
-        echo "- TGZ_LINK: location of the Ops Manager package to be installed on the current machine"
-        echo "- BASE_HOST: Host on which the Ops Manager install will be started"
-        echo
-        return 1
-    fi
-
-    # TODO: _download_ops_manager --version "${version}" --tgz
-    # Determine args
-    TGZ_LINK="$1"
-    BASE_HOST="$2"
-
-    # Variables
-    TARGET_DIR="${DIR}/mongodb-mms"
-    TARGET_TGZ="${TARGET_DIR}/mms.tgz"
-    ENC_KEY_PATH="${TARGET_DIR}/etc/mongodb-mms/gen.key"
-
-    # TODO: --config-flags
-    download_mongodb "4.2.1"
-    if ! is_local_port_open "${DEFAULT_MMS_MONGODB_PORT}"; then
-        start_mongodb "${DEFAULT_MMS_MONGODB_PORT}"
-    fi
-    if ! is_local_port_open "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"; then
-        start_mongodb "${DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT}"
-    fi
-
-    # Use the link provided (needed for builds)
-    echo "Downloading Ops Manager: ${TGZ_LINK} to ${TARGET_TGZ}..."
-    _curl "${curl_opts}" -o "${TARGET_TGZ}" "${TGZ_LINK}"
-
-    echo "Extracting tgz: ${TARGET_TGZ} to ${TARGET_DIR}..."
-    tar -xzf "${TARGET_TGZ}" -C "${TARGET_DIR}" --strip-components 1
-
-    echo "Generating a new Enc Key: ${ENC_KEY_PATH}..."
-    "${TARGET_DIR}"/bin/mms-gen-key -f "${ENC_KEY_PATH}" -o
-
-    echo "Creating automation directories..."
-    # Define and create the release automation dir, if not defined
-    AUTOMATION_RELEASE_DIR="${TARGET_DIR}/mongodb-releases"
-    mkdir -p "${AUTOMATION_RELEASE_DIR}"
-
-    echo "Updating conf to enable remote testing..."
-    # Note: This is most of the functionality from _configure_ops_manager and _skip_ops_manager_registration_wizard
-    # but we need to run without sudo, so moving it to here.
-    replace_property_in_file "${TARGET_DIR}"/conf/mms.conf "BASE_PORT" "${MMS_PORT}"
-    replace_property_in_file "${TARGET_DIR}"/conf/mms.conf "BASE_SSL_PORT" "${MMS_SSL_PORT}"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.centralUrl" "http://$BASE_HOST:${MMS_PORT}"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "automation.versions.directory" "${AUTOMATION_RELEASE_DIR}"
-    # TODO: call OM config
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.ignoreInitialUiSetup" "true"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.fromEmailAddr" "noreply@example.com"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.replyToEmailAddr" "noreply@example.com"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.adminEmailAddr" "noreply@example.com"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.mail.transport" "smtp"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.mail.hostname" "localhost"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.mail.port" "25"
-    replace_property_in_file "${TARGET_DIR}"/conf/conf-mms.properties "mms.mail.ssl" "false"
-
-    echo "Starting Ops Manager as current user: $USER..."
-    "${TARGET_DIR}"/bin/start-mongodb-mms --enc-key-path "${ENC_KEY_PATH}"
-}
 
 # #######################################################
 #             SEED THE TARGET ENVIRONMENT
