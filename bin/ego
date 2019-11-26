@@ -965,7 +965,10 @@ _configure_ops_manager() {
         # Configure backup head
         local backup_dir="${base_install_dir}/head"
         mkdir -p "${backup_dir}"
-        chown mongodb-mms:mongodb-mms "${backup_dir}"
+        if id -u mongodb-mms > /dev/null; then
+            # only chown if the user exists (not true for tgz)
+            chown mongodb-mms:mongodb-mms "${backup_dir}"
+        fi
         replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "${backup_dir}"
 
         # Configure ports
