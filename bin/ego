@@ -1043,7 +1043,6 @@ _install_ops_manager() {
         local install_dir
         install_dir="$(_get_tgz_install_dir)"
         mkdir -p "${install_dir}"
-        local enc_key_path="${install_dir}/etc/gen.key"
         
         echo "Extracting tgz: ${local_file} to ${install_dir}..."
         tar -xzf "${local_file}" -C "${install_dir}" --strip-components 1
@@ -1201,13 +1200,16 @@ start_ops_manager() {
     fi
 
     if _is_tgz "${archive}"; then
+        local install_dir
+        install_dir="$(_get_tgz_install_dir)"
+        local enc_key_path="${install_dir}/etc/gen.key"
+
         if [ ! -f "${enc_key_path}" ]; then
             echo "Generating a new Encryption Key: ${enc_key_path}..."
             "${install_dir}"/bin/mms-gen-key -f "${enc_key_path}"
         fi
 
         echo "Starting Ops Manager as the current user (${USER})..."
-        install_dir="$(_get_tgz_install_dir)"
         \nohup "${install_dir}"/bin/start-mongodb-mms --enc-key-path "${enc_key_path}" &
     fi
 
