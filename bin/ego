@@ -79,7 +79,7 @@ readonly timeout_duration="15m"
 declare -ri DEFAULT_MMS_MONGODB_PORT=27017
 declare -ri DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT=27018
 readonly JQ_VERSION="1.6"
-readonly DEFAULT_MMS_DIR="/opt/mongodb/mms"
+MMS_INSTALL_DIR="/opt/mongodb/mms"
 readonly MONGOD_INSTALL_DIR="data"
 readonly NOHUP_LOG_FILE="ego.log"
 readonly NOHUP_PROV_FILE="provision.bash"
@@ -798,7 +798,7 @@ _get_mms_config_file() {
     if [[ "${PLATFORM}" = "windows" ]]; then
        echo "/cygdrive/c/MMSData/Server/Config/conf-mms.properties"
     else
-       echo "${DEFAULT_MMS_DIR}/conf/conf-mms.properties"
+       echo "${MMS_INSTALL_DIR}/conf/conf-mms.properties"
     fi
 }
 _get_mms_archive() {
@@ -932,21 +932,19 @@ _skip_ops_manager_registration_wizard() {
 _configure_ops_manager() {
     _set_mongod_vars
 
-    local 
+    # Replace MMS install directory on Windows
     if [[ "${PLATFORM}" = "windows" ]]; then
-        base_install_dir="C:\\\\MMSData"
-    else
-        base_install_dir="${DEFAULT_MMS_DIR}"
+        MMS_INSTALL_DIR="C:\\\\MMSData"
     fi
 
     # Replace the default dir, if a valid one was specified
     if [[ "$#" -ne 0 && -d "$1" ]]; then
-        base_install_dir="$1"
+        MMS_INSTALL_DIR="$1"
     fi
 
     echo "Configuring Ops Manager..."
     if [[ "${PLATFORM}" = "windows" ]]; then
-        replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "${base_install_dir}\\\\BackupData\\\\"
+        replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "${MMS_INSTALL_DIR}\\\\BackupData\\\\"
 
         # Forward the ports if not using default values
         # Solution taken from: https://stackoverflow.com/questions/11525703/port-forwarding-in-windows
@@ -959,24 +957,24 @@ _configure_ops_manager() {
 
         # Force the automation release dir (expected by E2E tests)
         # NOTE: This value needs to match what is defined by the E2E tests, otherwise the OnPrem Generic E2E tests will fail
-        replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "${base_install_dir}\\\\MongoDBReleases\\\\"
+        replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "${MMS_INSTALL_DIR}\\\\MongoDBReleases\\\\"
 
     else
         # Configure backup head
-        local backup_dir="${base_install_dir}/head"
+        local backup_dir="${MMS_INSTALL_DIR}/head"
         mkdir -p "${backup_dir}"
-        if id -u mongodb-mms > /dev/null; then
+        if id -u mongodb-mms > /dev/null 2>&1; then
             # only chown if the user exists (not true for tgz)
             chown mongodb-mms:mongodb-mms "${backup_dir}"
-        fi
+        fi #xxx
         replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "${backup_dir}"
 
         # Configure ports
-        replace_property_in_file "${base_install_dir}/conf/mms.conf" "BASE_PORT" "${MMS_PORT}"
-        replace_property_in_file "${base_install_dir}/conf/mms.conf" "BASE_SSL_PORT" "${MMS_SSL_PORT}"
+        replace_property_in_file "${MMS_INSTALL_DIR}/conf/mms.conf" "BASE_PORT" "${MMS_PORT}"
+        replace_property_in_file "${MMS_INSTALL_DIR}/conf/mms.conf" "BASE_SSL_PORT" "${MMS_SSL_PORT}"
 
         # Define and create the release automation dir, if not defined
-        local automation_release_dir="${base_install_dir}/mongodb-releases/"
+        local automation_release_dir="${MMS_INSTALL_DIR}/mongodb-releases/"
         mkdir -p "${automation_release_dir}"
         chmod -R 0777 "${automation_release_dir}"
 
