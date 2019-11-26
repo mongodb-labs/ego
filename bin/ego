@@ -966,7 +966,7 @@ _configure_ops_manager() {
         if id -u mongodb-mms > /dev/null 2>&1; then
             # only chown if the user exists (not true for tgz)
             chown mongodb-mms:mongodb-mms "${backup_dir}"
-        fi #xxx
+        fi
         replace_property_in_file "$(_get_mms_config_file)" "rootDirectory" "${backup_dir}"
 
         # Configure ports
@@ -1068,13 +1068,25 @@ _install_ops_manager() {
 
     elif [[ "${PLATFORM}" = "debian" ]] || [[ ${PLATFORM} = "ubuntu" ]]; then # Debian/Ubuntu
         echo "Installing Ops Manager (${local_file})..."
+        _wait_for_process_to_finish apt
+        _wait_for_process_to_finish dpkg
         dpkg -i --force-confnew "${local_file}"
         rm -f "${local_file}"
 
-    elif [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux/SuSe
+    elif [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux
         echo "Installing Ops Manager (${local_file})..."
+        _wait_for_process_to_finish yum
+
         rpm "${rpm_flags[@]}" "${local_file}"
         rm -f "${local_file}"
+
+    elif [[ ${PLATFORM} = "suse" ]]; then # SuSe
+        echo "Installing Ops Manager (${local_file})..."
+        _wait_for_process_to_finish zypper
+
+        rpm "${rpm_flags[@]}" "${local_file}"
+        rm -f "${local_file}"
+
     else
         echo "Unsupported combination of options or something went wrong: $*"
         echo "Exiting!"
