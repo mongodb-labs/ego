@@ -40,6 +40,15 @@ functions:
           set -e
           bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version}
 
+  "install ops manager tgz":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -e
+          bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version} --tgz
+
   "uninstall ops manager":
     - command: shell.exec
       params:
@@ -112,6 +121,19 @@ tasks:
     - func: "merge in base branch"
     - func: "link"
     - func: "install ops manager"
+      vars:
+        mongodb_version: 4.2.1
+        version: 4.2.3
+    - func: "uninstall ops manager"
+
+- name: INSTALL_OPS_MANAGER_4.2_TGZ
+  tags:
+    - install
+  commands:
+    - func: "fetch source"
+    - func: "merge in base branch"
+    - func: "link"
+    - func: "install ops manager tgz"
       vars:
         mongodb_version: 4.2.1
         version: 4.2.3

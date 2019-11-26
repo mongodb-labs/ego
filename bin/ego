@@ -1003,6 +1003,7 @@ _is_tgz() {
     fi
 }
 _get_tgz_install_dir() {
+    # Return the default install dir for tgz-s
     echo "${HOME}/mongodb-mms"
 }
 _install_ops_manager() {
@@ -1035,12 +1036,9 @@ _install_ops_manager() {
         exit 1
     fi
 
-    if _is_tgz "${archive}"; then
-        # Using a tar.gz
-        echo "TODO: tar.gz installs are not fully supported yet; aborting for now"
+    if _is_tgz "${archive}" && [[ "${PLATFORM}" != "windows" ]]; then
+        echo "Installing Ops Manager from a tar.gz"
         echo
-        exit 1
-
         local install_dir
         install_dir="$(_get_tgz_install_dir)"
         mkdir -p "${install_dir}"
@@ -1109,14 +1107,23 @@ _uninstall_ops_manager() {
     echo "Uninstalling Ops Manager..."
     installed_package="$(_find_installed_package mongodb-mms)"
     
-    if [[ -z "$installed_package" ]]; then
+    # Default TGZ install dir
+    local install_dir
+    install_dir="$(_get_tgz_install_dir)"
+
+    set +e  # do not fail here
+    if [[ ! -d "${install_dir}" || -z "$installed_package" ]]; then
         echo "Ops Manager is not present on this host. Skiping uninstall..."
         echo
         return
     fi
 
     echo "Uninstalling ${installed_package}..."
-    if [[ "${PLATFORM}" = "debian" ]] || [[ ${PLATFORM} = "ubuntu" ]]; then # Debian/Ubuntu
+    if [ -d "${install_dir}" ]; then
+        echo "Deleting ${install_dir}..."
+        rm -rf "${install_dir}"
+
+    elif [[ "${PLATFORM}" = "debian" ]] || [[ ${PLATFORM} = "ubuntu" ]]; then # Debian/Ubuntu
         dpkg -r "${installed_package}"
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux/SuSe
@@ -1164,7 +1171,7 @@ start_ops_manager() {
             --skip-waiting-for-service-start) do_not_wait_for_port=1 ; shift ;;
             --skip-waiting-for-daemon) do_not_wait_for_daemon=1 ; shift ;;
             --archive) archive="$2"; shift 2;;
-            * ) echo "Invalid start option: $1" ; exit 1 ;;
+            * ) echo "Invalid configuration option: $1" ; exit 1 ;;
         esac
     done
 
@@ -1231,7 +1238,15 @@ stop_ops_manager() {
     local port
     port="$(get_om_port)"
 
-    echo "Stopping Ops Manager..."
+    local do_not_wait_for_port=0
+    local do_not_wait_for_daemon=0
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --skip-waiting-for-service-start) do_not_wait_for_port=1 ; shift ;;
+            --skip-waiting-for-daemon) do_not_wait_for_daemon=1 ; shift ;;
+            * ) echo "Invalid configuration option: $1" ; exit 1 ;;
+        esac
+    done
 
     if [[ "${PLATFORM}" = "windows" ]]; then # Windows
         # On Windows we start on the default port and forward MMS_PORT to it
@@ -1245,20 +1260,39 @@ stop_ops_manager() {
         return
     fi
 
-    echo "Stopping the Ops Manager service..."
+    # Default TGZ install dir
+    local install_dir
+    install_dir="$(_get_tgz_install_dir)"
+
     set +e  # do not fail here
-    if [[ "${PLATFORM}" = "windows" ]]; then # Windows
+    if [ -d "${install_dir}" ] && [[ "${PLATFORM}" != "windows" ]]; then
+        echo "Killing all Ops Manager and Backup Daemon processes..."
+        pgrep mms-app | xargs -I{} kill -9 {}
+
+    elif [[ "${PLATFORM}" = "windows" ]]; then # Windows
+        echo "Stopping Ops Manager..."
         net stop "MongoDB Backup Daemon Service"
+
+        echo "Stopping the Backup Daemon..."
         net stop "MongoDB Ops Manager HTTP Service"
 
     else # Standard Linux
+        echo "Stopping Ops Manager and the Backup Daemon..."
         service_command stop mongodb-mms
     fi
     set -e
 
-    echo "Waiting for Ops Manager to stop..."
-    wait_for_closed_local_port "${port}"
-    echo "Ops Manager has stopped!"
+    if [[ "${do_not_wait_for_port}" -eq 0 ]]; then
+        echo "Waiting for Ops Manager to stop..."
+        wait_for_open_local_port "${port}"
+        echo "Ops Manager is not running."
+    fi
+
+    if [[ "${do_not_wait_for_daemon}" -eq 0 ]]; then
+        echo "Waiting for the Backup Daemon to stop..."
+        wait_for_open_local_port "${MMS_DAEMON_PORT}"
+        echo "The Backup Daemon is not running."
+    fi
 }
 restart_ops_manager() {
     stop_ops_manager || echo "Stopped..."
