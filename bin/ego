@@ -47,7 +47,7 @@ set -o errexit
 
 readonly DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
-readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip download_logs get_app_setting get_host_ip get_om_port get_om_scheme is_local_port_open is_upgrade_mode_enabled nohup run seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
+readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_om_port get_om_scheme is_local_port_open nohup run seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
 # Other settings
 declare -a curl_opts
@@ -484,12 +484,12 @@ _wait_for_process_to_finish() {
 }
 _ensure_tmp_dir_is_writeable() {
     # Attempt to set the appropriate perms, but continue if any of the operations fail
-    set +e
+    set +o errexit
     for d in /tmp /var/tmp /data/tmp; do
         echo "Ensure $d is writeable..."
         chmod -R 0777 "$d"
     done
-    set -e
+    set -o errexit
 }
 _install_dep() {
     # Parameter check
@@ -1195,7 +1195,7 @@ start_ops_manager() {
 
         echo "Starting Ops Manager as the current user (${USER})..."
         install_dir="$(_get_tgz_install_dir)"
-        nohup "${install_dir}"/bin/start-mongodb-mms --enc-key-path "${enc_key_path}" &
+        \nohup "${install_dir}"/bin/start-mongodb-mms --enc-key-path "${enc_key_path}" &
     fi
 
     if [[ "${PLATFORM}" = "windows" ]]; then # Windows
@@ -1264,7 +1264,7 @@ stop_ops_manager() {
     local install_dir
     install_dir="$(_get_tgz_install_dir)"
 
-    set +e  # do not fail here
+    set +o errexit  # do not fail here
     if [ -d "${install_dir}" ] && [[ "${PLATFORM}" != "windows" ]]; then
         echo "Killing all Ops Manager and Backup Daemon processes..."
         pgrep mms-app | xargs -I{} kill -9 {}
@@ -1280,7 +1280,7 @@ stop_ops_manager() {
         echo "Stopping Ops Manager and the Backup Daemon..."
         service_command stop mongodb-mms
     fi
-    set -e
+    set -o errexit
 
     if [[ "${do_not_wait_for_port}" -eq 0 ]]; then
         echo "Waiting for Ops Manager to stop..."
@@ -1841,7 +1841,6 @@ _scp() {
         scp -vvv "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "$2"
     fi
 }
-
 seed() {
     # Print usage info
     if [[ "$#" -lt 1 ]]; then
@@ -1865,7 +1864,6 @@ seed() {
     fi
     echo "Deployed ${SCRIPT} to $1..."
 }
-
 ssh() {
     # Parameter check
     if [[ "$#" -lt 1 ]]; then
@@ -1883,7 +1881,6 @@ ssh() {
         "$SSH" -vvv -tt -A "${ssh_opts[@]}" ${SSH_OPTS-} "$1" /bin/bash
     fi
 }
-
 
 # #######################################################
 #                           MAIN
