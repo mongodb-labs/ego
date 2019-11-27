@@ -79,7 +79,6 @@ readonly timeout_duration="15m"
 declare -ri DEFAULT_MMS_MONGODB_PORT=27017
 declare -ri DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT=27018
 readonly JQ_VERSION="1.6"
-MMS_INSTALL_DIR="/opt/mongodb/mms"
 readonly MONGOD_INSTALL_DIR="data"
 readonly NOHUP_LOG_FILE="ego.log"
 readonly NOHUP_PROV_FILE="provision.bash"
@@ -87,11 +86,12 @@ declare -i MMS_PORT=9080
 declare -i MMS_SSL_PORT=9443
 declare -ri MMS_DAEMON_PORT=8087
 declare -ri PROXY_PORT=8888
+MMS_INSTALL_DIR="/opt/mongodb/mms"
 
 # Commands
-NC="$(command -v nc 2>&1 || command -v netcat echo "Missing netcat commmand" >&2)"
-SSH="$(command -v ssh || echo "Missing ssh commmand" >&2)"
-TIMEOUT="$(command -v gtimeout || command -v timeout || echo "Missing timeout commmand" >&2)"
+NC="$(command -v nc 2>&1 || command -v netcat 2>&1 || echo "Missing netcat commmand" >&2)"
+SSH="$(command -v ssh 2>&1 || echo "Missing ssh commmand" >&2)"
+TIMEOUT="$(command -v gtimeout 2>&1 || command -v timeout 2>&1 || echo "Missing timeout commmand" >&2)"
 if [[ -z "$NC" || -z "$SSH" || -z "$TIMEOUT" ]]; then
     exit 2
 fi
