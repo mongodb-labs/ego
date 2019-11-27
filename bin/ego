@@ -114,9 +114,11 @@ _fix_term() {
 }
 _timeout() {
     if command -v timeout > /dev/null 2>&1; then
-        command -v timeout
+        #shellcheck disable=SC2005
+        echo "$(command -v timeout)"
     elif command -v gtimeout > /dev/null 2>&1; then
-        command -v gtimeout
+        #shellcheck disable=SC2005
+        echo "$(command -v gtimeout)"
     else
         echo "Could not find a timeout command!"
         echo
@@ -1213,6 +1215,12 @@ start_ops_manager() {
     fi
 
     if _is_tgz "${archive}"; then
+        if [[ "${PLATFORM}" = "windows" ]]; then
+            echo "Cannot start Ops Manager from tgz on Windows..."
+            echo
+            exit 1
+        fi
+
         local install_dir
         install_dir="$(_get_tgz_install_dir)"
         local enc_key_path="${install_dir}/etc/gen.key"
@@ -1224,9 +1232,8 @@ start_ops_manager() {
 
         echo "Starting Ops Manager as the current user (${USER})..."
         \nohup "${install_dir}"/bin/start-mongodb-mms --enc-key-path "${enc_key_path}" &
-    fi
 
-    if [[ "${PLATFORM}" = "windows" ]]; then # Windows
+    elif [[ "${PLATFORM}" = "windows" ]]; then # Windows
         echo "Starting Ops Manager..."
         net start "MongoDB Ops Manager HTTP Service"
 
