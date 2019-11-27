@@ -89,8 +89,12 @@ declare -ri MMS_DAEMON_PORT=8087
 declare -ri PROXY_PORT=8888
 
 # Commands
-NC="$(command -v nc 2>&1 || command -v netcat || exit 2)"
-SSH="$(command -v ssh || exit 2)"
+NC="$(command -v nc 2>&1 || command -v netcat echo "Missing netcat commmand" >&2)"
+SSH="$(command -v ssh || echo "Missing ssh commmand" >&2)"
+TIMEOUT="$(command -v gtimeout || command -v timeout || echo "Missing timeout commmand" >&2)"
+if [[ -z "$NC" || -z "$SSH" || -z "$TIMEOUT" ]]; then
+    exit 2
+fi
 
 _mark_versions_set() {
     export INSTALL_VERSION="$1"
@@ -110,19 +114,6 @@ _fix_term() {
     # Do not allow Debian distros to have an interactive term
     if [[ "${PLATFORM}" = "debian" || "${PLATFORM}" = "ubuntu" ]]; then
       export DEBIAN_FRONTEND="noninteractive"
-    fi
-}
-_timeout() {
-    if command -v timeout > /dev/null 2>&1; then
-        #shellcheck disable=SC2005
-        echo "$(command -v timeout)"
-    elif command -v gtimeout > /dev/null 2>&1; then
-        #shellcheck disable=SC2005
-        echo "$(command -v gtimeout)"
-    else
-        echo "Could not find a timeout command!"
-        echo
-        exit 1
     fi
 }
 
@@ -382,7 +373,7 @@ is_local_port_open() {
             return 0
         fi
     else
-        if _timeout 1s bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$1" > /dev/null 2>&1; then
+        if "$TIMEOUT" 1s bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$1" > /dev/null 2>&1; then
             echo "Port $1 is open!"
             return 0
         fi
@@ -403,14 +394,14 @@ wait_for_open_port() {
 
     echo "Waiting for ${timeout_duration} for port $1:$2 to open..."
     FLAG=""
-    if _timeout --foreground 1s echo > /dev/null 2>&1; then
+    if "$TIMEOUT" --foreground 1s echo > /dev/null 2>&1; then
         FLAG="--foreground"
     fi
 
     if [ -e "$NC" ]; then
-        _timeout ${FLAG} ${timeout_duration} bash -c 'while ! '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
+        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while ! '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
     else
-        _timeout ${FLAG} ${timeout_duration} bash -c 'while ! _timeout '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$2"'" > /dev/null 2>&1; do printf .; sleep 5; done'
+        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while ! '"$TIMEOUT"' '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$2"'" > /dev/null 2>&1; do printf .; sleep 5; done'
     fi
     echo "Port $1:$2 is open!"
 }
@@ -436,13 +427,13 @@ wait_for_closed_port() {
 
     echo "Waiting for ${timeout_duration} for port $1:$2 to close..."
     FLAG=""
-    if _timeout --foreground 1s echo > /dev/null 2>&1; then
+    if "$TIMEOUT" --foreground 1s echo > /dev/null 2>&1; then
         FLAG="--foreground"
     fi
     if [ -e "$NC" ]; then
-        _timeout ${FLAG} ${timeout_duration} bash -c 'while '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
+        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
     else
-        _timeout ${FLAG} ${timeout_duration} bash -c 'while _timeout '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$1"'" > /dev/null 2>&1; do printf .; sleep 5; done'
+        "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while '"$TIMEOUT"' '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$1"'" > /dev/null 2>&1; do printf .; sleep 5; done'
     fi
     echo "Port $1:$2 is closed!"
 }
@@ -482,7 +473,7 @@ DEPS="unzip curl jq squid openssl nc netcat xdg-utils libxss1 libappindicator1 l
 _wait_for_process_to_finish() {
     echo "Waiting for ${timeout_duration} for $1 to complete any running jobs..."
 
-    _timeout ${timeout_duration} bash -c 'while pgrep '"$1"' > /dev/null 2>&1; do printf .; sleep 5; done'
+    "$TIMEOUT" ${timeout_duration} bash -c 'while pgrep '"$1"' > /dev/null 2>&1; do printf .; sleep 5; done'
 }
 _ensure_tmp_dir_is_writeable() {
     # Attempt to set the appropriate perms, but continue if any of the operations fail
