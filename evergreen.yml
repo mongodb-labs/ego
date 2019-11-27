@@ -58,44 +58,50 @@ functions:
           set -e
           bin/ego ops_manager_uninstall
 
+  "get logs":
+    - command: shell.exec
+      params:
+        type: system
+        shell: bash
+        script: |
+          echo "==>"
+          echo "==> Printing any existing Ops Manager Logs"
+          
+          echo "==>"
+          echo "==> mms-migration.log"
+          cat /opt/mongodb/mms/logs/mms-migration.log 2>&1 || echo "No logs found."
+
+          echo "==>"
+          echo "==> mms0-startup.log"
+          cat /opt/mongodb/mms/logs/mms0-startup.log 2>&1 || echo "No logs found."
+
+          echo "==>"
+          echo "==> daemon.log"
+          cat /opt/mongodb/mms/logs/daemon.log 2>&1 || echo "No logs found."
+
+          echo "==>"
+          echo "==> mms0.log"
+          cat /opt/mongodb/mms/logs/mms0.log 2>&1 || echo "No logs found."
+
   "clean":
     - command: shell.exec
       params:
         type: system
         shell: bash
         script: |
-          echo "Outputting Ops Manager logs:"
-          
           echo "==>"
-          echo "==> mms-migration.log"
-          cat /opt/mongodb/mms/logs/mms-migration.log || echo "No logs found."
+          echo "==> Cleaning any pre-installed Ops Manager / MongoDB artifacts"
 
-          echo "==>"
-          echo "==> mms0-startup.log"
-          cat /opt/mongodb/mms/logs/mms0-startup.log || echo "No logs found."
-
-          echo "==>"
-          echo "==> daemon.log"
-          cat /opt/mongodb/mms/logs/daemon.log || echo "No logs found."
-
-          echo "==>"
-          echo "==> mms0.log"
-          cat /opt/mongodb/mms/logs/mms0.log || echo "No logs found."
-
-    - command: shell.exec
-      params:
-        type: system
-        shell: bash
-        script: |
           bin/ego ops_manager_clean
 
 # Ensure the Evergreen host is clean
 pre:
-  - func: clean
+  - func: "clean"
 
-# Leave nothing behind
+# Print logs and leave nothing behind
 post:
-  - func: clean
+  - func: "get logs"
+  - func: "clean"
 
 tasks:
 - name: INSTALL_OPS_MANAGER_4.0
