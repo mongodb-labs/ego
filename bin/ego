@@ -1892,6 +1892,17 @@ _get_install_cmd() {
 seed-local() {
     #shellcheck disable=SC2091
     "$(_get_install_cmd "${1-}")"
+
+
+    set -vx
+    #shellcheck disable=SC2016
+    WORKDIR='$HOME'
+    if [[ "$#" -gt 0 && -n "$1" ]]; then
+        WORKDIR="$1"
+    fi
+    mkdir -p ${WORKDIR}/.ego/bin
+    mv ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/
+    ${WORKDIR}/.ego/bin/${SCRIPT} link
 }
 seed() {
     # Print usage info

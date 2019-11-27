@@ -20,6 +20,8 @@ functions:
           fi
 
           # merge before checking
+          echo "==>"
+          echo "==> Merging in the base branch"
           git merge ${branch_name}
 
   "ego install":
@@ -29,6 +31,8 @@ functions:
         shell: bash
         script: |
           set -e
+          echo "==>"
+          echo "==> Installing ego"
           bin/ego seed-local ${workdir}
 
   "install ops manager":
@@ -38,6 +42,8 @@ functions:
         shell: bash
         script: |
           set -e
+          echo "==>"
+          echo "==> Installing Ops Manager ${version}"
           bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version}
 
   "install ops manager tgz":
@@ -47,6 +53,8 @@ functions:
         shell: bash
         script: |
           set -e
+          echo "==>"
+          echo "==> Installing Ops Manager ${version} (tgz)"
           bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version} --tgz
 
   "uninstall ops manager":
@@ -56,6 +64,8 @@ functions:
         shell: bash
         script: |
           set -e
+          echo "==>"
+          echo "==> Uninstalling Ops Manager"
           bin/ego ops_manager_uninstall
 
   "get logs":
@@ -105,7 +115,6 @@ functions:
         script: |
           echo "==>"
           echo "==> Cleaning any pre-installed Ops Manager / MongoDB artifacts"
-
           ego ops_manager_clean
 
 # Ensure the Evergreen host is clean
