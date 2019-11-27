@@ -1872,18 +1872,17 @@ _scp() {
         scp -vvv "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "$2"
     fi
 }
-_get_install_cmd() {
+seed-local() {
     #shellcheck disable=SC2016
     WORKDIR='$HOME'
     if [[ "$#" -gt 0 && -n "$1" ]]; then
         WORKDIR="$1"
     fi
 
-    echo "mkdir -p ${WORKDIR}/.ego/bin; cp ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT}; ${WORKDIR}/.ego/bin/${SCRIPT} link"
-}
-seed-local() {
-    #shellcheck disable=SC2091
-    "$(_get_install_cmd "${1-}")"
+    mkdir -p "${WORKDIR}/.ego/bin"
+    cp "${DIR}/${SCRIPT}" "${WORKDIR}/.ego/bin/"
+    chmod a+x "${WORKDIR}/.ego/bin/${SCRIPT}"
+    "${WORKDIR}/.ego/bin/${SCRIPT}" link
 }
 seed() {
     # Print usage info
@@ -1896,7 +1895,13 @@ seed() {
     echo "Deploying ${SCRIPT} to $1..."
     _scp "${DIR}/${SCRIPT}" "$1:"
 
-    remote_exec_cmd="$(_get_install_cmd "${2-}")"
+    #shellcheck disable=SC2016
+    local WORKDIR='$HOME'
+    if [[ "$#" -gt 1 && -n "$2" ]]; then
+        WORKDIR="$2"
+    fi
+
+    remote_exec_cmd="mkdir -p ${WORKDIR}/.ego/bin; cp ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT}; ${WORKDIR}/.ego/bin/${SCRIPT} link"
 
     # shellcheck disable=SC2016,SC2086
     if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd}; then
