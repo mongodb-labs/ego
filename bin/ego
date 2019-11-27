@@ -1891,7 +1891,7 @@ _get_install_cmd() {
 }
 seed-local() {
     #shellcheck disable=SC2091
-    "$(_get_install_cmd "${1-}")"
+    #"$(_get_install_cmd "${1-}")"
 
 
     set -vx
