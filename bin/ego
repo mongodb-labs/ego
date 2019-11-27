@@ -89,7 +89,7 @@ declare -ri MMS_DAEMON_PORT=8087
 declare -ri PROXY_PORT=8888
 
 # Commands
-NC="$(command -v nc || command -v netcat || exit 2)"
+NC="$(command -v nc 2>&1 || command -v netcat || exit 2)"
 SSH="$(command -v ssh || exit 2)"
 
 _mark_versions_set() {
