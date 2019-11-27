@@ -92,7 +92,7 @@ functions:
           echo "==>"
           echo "==> Cleaning any pre-installed Ops Manager / MongoDB artifacts"
 
-          bin/ego ops_manager_clean
+          src/bin/ego ops_manager_clean
 
 # Ensure the Evergreen host is clean
 pre:

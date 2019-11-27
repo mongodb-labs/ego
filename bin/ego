@@ -937,10 +937,16 @@ _configure_ops_manager() {
         MMS_INSTALL_DIR="C:\\\\MMSData"
     fi
 
-    # Replace the default dir, if a valid one was specified
-    if [[ "$#" -ne 0 && -d "$1" ]]; then
-        MMS_INSTALL_DIR="$1"
-    fi
+    # Read properties
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --skip-registration-wizard) _skip_ops_manager_registration_wizard; shift;;
+            --install-dir) MMS_INSTALL_DIR="$2"; shift 2;;
+            --appdb-url) replace_property_in_file "$(_get_mms_config_file)" "mongo.mongoUri" "$2"; shift 2;;
+            --central-url) replace_property_in_file "$(_get_mms_config_file)" "mms.centralUrl" "$2"; shift 2;;
+            * ) echo "Invalid configuration option: '$1'" ; exit 1 ;;
+        esac
+    done
 
     echo "Configuring Ops Manager..."
     if [[ "${PLATFORM}" = "windows" ]]; then
@@ -982,16 +988,6 @@ _configure_ops_manager() {
         # NOTE: This value needs to match what is defined by the E2E tests, otherwise the OnPrem Generic E2E tests will fail
         replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "${automation_release_dir}"
     fi
-
-    # Extra properties
-    while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-            --skip-registration-wizard) _skip_ops_manager_registration_wizard; shift;;
-            --appdb-url) replace_property_in_file "$(_get_mms_config_file)" "mongo.mongoUri" "$2"; shift 2;;
-            --central-url) replace_property_in_file "$(_get_mms_config_file)" "mms.centralUrl" "$2"; shift 2;;
-            * ) echo "Invalid configuration option: '$1'" ; exit 1 ;;
-        esac
-    done
 }
 _is_tgz() {
     local local_file
@@ -1751,11 +1747,17 @@ ops_manager_install_from_link() {
 
     _install_ops_manager --archive "$archive" $upgrade
 
+    local extra_options=
+    if _is_tgz "${archive}"; then
+        extra_options="--install_dir $(_get_tgz_install_dir)"
+    fi
+    #shellcheck disable=SC2086
     _configure_ops_manager --skip-registration-wizard \
                           --central-url "${central_url}" \
-                          --appdb-url "${appdb_url}"
+                          --appdb-url "${appdb_url}" \
+                          ${extra_options}
 
-     # Configure SSL
+    # Configure SSL
     if [[ "${ssl}" -eq 1 && -n "${ssl_hostname}" ]]; then
         echo "Configuring Ops Manager with SSL for host ${ssl_hostname}..."
         echo
