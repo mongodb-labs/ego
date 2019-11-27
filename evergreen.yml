@@ -89,23 +89,23 @@ functions:
 
           echo "==>"
           echo "==> $DIR/logs/mms-migration.log"
-          cat "$DIR/logs/mms-migration.log 2>/dev/null || echo "No logs found."
+          cat "$DIR/logs/mms-migration.log" 2>/dev/null || echo "No logs found."
 
           echo "==>"
           echo "==> $DIR/logs/daemon.log"
-          cat "$DIR/logs/daemon.log 2>/dev/null || echo "No logs found."
+          cat "$DIR/logs/daemon.log" 2>/dev/null || echo "No logs found."
 
           echo "==>"
           echo "==> $DIR/logs/daemon-startup.log"
-          cat "$DIR/logs/daemon-startup.log 2>/dev/null || echo "No logs found."
+          cat "$DIR/logs/daemon-startup.log" 2>/dev/null || echo "No logs found."
 
           echo "==>"
           echo "==> $DIR/logs/mms0-startup.log"
-          cat "$DIR/logs/mms0-startup.log 2>/dev/null || echo "No logs found."
+          cat "$DIR/logs/mms0-startup.log" 2>/dev/null || echo "No logs found."
 
           echo "==>"
           echo "==> $DIR/logs/mms0.log"
-          cat "$DIR/logs/mms0.log 2>/dev/null || echo "No logs found."
+          cat "$DIR/logs/mms0.log" 2>/dev/null || echo "No logs found."
 
   "clean":
     - command: shell.exec
