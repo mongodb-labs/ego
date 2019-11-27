@@ -45,7 +45,7 @@ set -o errexit
 #       Wherever this is the case, the script will alert you and in some cases stop execution altogether.
 #
 
-readonly DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
+readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
 readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_install_cmd get_om_port get_om_scheme is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
@@ -566,7 +566,7 @@ _user_dir() {
     #     echo "${HOME}"
     # fi
     #shellcheck disable=SC2005
-    echo "$(cd "$DIR"/../.. && pwd)"
+    echo "$(cd "$DIR"/../.. && pwd -P)"
 }
 _curl() {
     $(command -v curl || echo "curl") "$@"
@@ -1891,18 +1891,7 @@ _get_install_cmd() {
 }
 seed-local() {
     #shellcheck disable=SC2091
-    #"$(_get_install_cmd "${1-}")"
-
-
-    set -vx
-    #shellcheck disable=SC2016
-    WORKDIR='$HOME'
-    if [[ "$#" -gt 0 && -n "$1" ]]; then
-        WORKDIR="$1"
-    fi
-    mkdir -p ${WORKDIR}/.ego/bin
-    mv ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/
-    ${WORKDIR}/.ego/bin/${SCRIPT} link
+    "$(_get_install_cmd "${1-}")"
 }
 seed() {
     # Print usage info
