@@ -938,12 +938,15 @@ _configure_ops_manager() {
     fi
 
     # Read properties
+    local skip_registration_wizard=0
+    local appdb_url=
+    local central_url=
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
-            --skip-registration-wizard) _skip_ops_manager_registration_wizard; shift;;
             --install-dir) MMS_INSTALL_DIR="$2"; shift 2;;
-            --appdb-url) replace_property_in_file "$(_get_mms_config_file)" "mongo.mongoUri" "$2"; shift 2;;
-            --central-url) replace_property_in_file "$(_get_mms_config_file)" "mms.centralUrl" "$2"; shift 2;;
+            --skip-registration-wizard) skip_registration_wizard=1; shift;;
+            --appdb-url) appdb_url="$2"; shift 2;;
+            --central-url) central_url="$2"; shift 2;;
             * ) echo "Invalid configuration option: '$1'" ; exit 1 ;;
         esac
     done
@@ -987,6 +990,19 @@ _configure_ops_manager() {
         # Force the automation release dir (expected by E2E tests)
         # NOTE: This value needs to match what is defined by the E2E tests, otherwise the OnPrem Generic E2E tests will fail
         replace_property_in_file "$(_get_mms_config_file)" "automation.versions.directory" "${automation_release_dir}"
+    fi
+
+    # Set extra properties
+    if [[ "${skip_registration_wizard}" -eq 1 ]]; then
+        _skip_ops_manager_registration_wizard
+    fi
+
+    if [[ -n "${appdb_url}" ]]; then
+        replace_property_in_file "$(_get_mms_config_file)" "mongo.mongoUri" "${appdb_url}"
+    fi
+
+    if [[ -n "${central_url}" ]]; then
+        replace_property_in_file "$(_get_mms_config_file)" "mms.centralUrl" "${central_url}"
     fi
 }
 _is_tgz() {
