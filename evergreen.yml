@@ -67,21 +67,31 @@ functions:
           echo "==>"
           echo "==> Printing any existing Ops Manager Logs"
           
+          # Determine install directory
+          DIR=/opt/mongodb/mms
+          if [ -d "$HOME/mongodb-mms" ]; then
+            DIR="$HOME/mongodb-mms"
+          else
+            echo "==>"
+            echo "==> Service Status:"
+            ego service_command status mongodb-mms
+          fi
+
           echo "==>"
           echo "==> mms-migration.log"
-          cat /opt/mongodb/mms/logs/mms-migration.log 2>&1 || echo "No logs found."
+          cat "$DIR/logs/mms-migration.log 2>&1 || echo "No logs found."
 
           echo "==>"
           echo "==> mms0-startup.log"
-          cat /opt/mongodb/mms/logs/mms0-startup.log 2>&1 || echo "No logs found."
+          cat "$DIR/logs/mms0-startup.log 2>&1 || echo "No logs found."
 
           echo "==>"
           echo "==> daemon.log"
-          cat /opt/mongodb/mms/logs/daemon.log 2>&1 || echo "No logs found."
+          cat "$DIR/logs/daemon.log 2>&1 || echo "No logs found."
 
           echo "==>"
           echo "==> mms0.log"
-          cat /opt/mongodb/mms/logs/mms0.log 2>&1 || echo "No logs found."
+          cat "$DIR/logs/mms0.log 2>&1 || echo "No logs found."
 
   "clean":
     - command: shell.exec
