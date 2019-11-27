@@ -1765,7 +1765,7 @@ ops_manager_install_from_link() {
 
     local extra_options=
     if _is_tgz "${archive}"; then
-        extra_options="--install_dir $(_get_tgz_install_dir)"
+        extra_options="--install-dir $(_get_tgz_install_dir)"
     fi
     #shellcheck disable=SC2086
     _configure_ops_manager --skip-registration-wizard \
