@@ -48,7 +48,7 @@ set -o errexit
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly CWD="$(dirname "$(readlink "$0")")"
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
-readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_install_cmd get_om_port get_om_scheme is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
+readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_om_port get_om_scheme is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
 # Other settings
 declare -a curl_opts
@@ -559,7 +559,7 @@ resolve_system_dependencies() {
 }
 _user_dir() {
     #shellcheck disable=SC2005
-    echo "$(cd "${CWD}"/.. && pwd -P)"
+    echo "$(cd "${CWD}" && pwd -P)"
 }
 _curl() {
     $(command -v curl || echo "curl") "$@"
@@ -1990,7 +1990,7 @@ main() {
 
     echo
     echo "--------------"
-    echo "Executing: ego $*"
+    echo "Executing: ${SCRIPT} $*"
     echo "--------------"
     "$@"
 }
