@@ -22,7 +22,7 @@ functions:
           # merge before checking
           git merge ${branch_name}
 
-  "link":
+  "ego install":
     - command: shell.exec
       params:
         working_dir: src
@@ -30,7 +30,6 @@ functions:
         script: |
           set -e
           bin/ego seed-local ${workdir}
-          ${workdir}/.ego/ego link
 
   "install ops manager":
     - command: shell.exec
@@ -113,7 +112,7 @@ functions:
 pre:
   - func: "fetch source"
   - func: "merge in base branch"
-  - func: "link"
+  - func: "ego install"
   - func: "clean"
 
 # Print logs and leave nothing behind

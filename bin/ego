@@ -75,7 +75,7 @@ ssh_opts[11]="-o"
 ssh_opts[12]="ServerAliveCountMax=20"
 #ssh_opts[13]="-vvv" # DEBUG mode
 readonly ssh_opts
-readonly timeout_duration="15m"
+readonly timeout_duration="10m"
 declare -ri DEFAULT_MMS_MONGODB_PORT=27017
 declare -ri DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT=27018
 readonly JQ_VERSION="1.6"
@@ -1887,6 +1887,9 @@ _get_install_cmd() {
         WORKDIR="$1"
     fi
 
+    pwd
+    ls -al ${WORKDIR}
+    
     echo "mkdir -p ${WORKDIR}/.ego/bin; mv ${SCRIPT} ${WORKDIR}/.ego/bin/; ${WORKDIR}/.ego/bin/${SCRIPT} link"
 }
 seed-local() {
