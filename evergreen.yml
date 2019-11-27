@@ -61,7 +61,6 @@ functions:
   "clean":
     - command: shell.exec
       params:
-        working_dir: src
         type: system
         shell: bash
         script: |
@@ -85,7 +84,6 @@ functions:
 
     - command: shell.exec
       params:
-        working_dir: src
         type: system
         shell: bash
         script: |

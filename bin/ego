@@ -1123,13 +1123,13 @@ _uninstall_ops_manager() {
     local install_dir
     install_dir="$(_get_tgz_install_dir)"
 
-    set +e  # do not fail here
     if [[ ! -d "${install_dir}" || -z "$installed_package" ]]; then
-        echo "Ops Manager is not present on this host. Skiping uninstall..."
+        echo "Ops Manager is not present on this host. Skipping uninstall..."
         echo
         return
     fi
 
+    set +o errexit # do not fail here
     echo "Uninstalling ${installed_package}..."
     if [ -d "${install_dir}" ]; then
         echo "Deleting ${install_dir}..."
@@ -1145,6 +1145,7 @@ _uninstall_ops_manager() {
         echo "Uninstalling (${installed_package}) is not supported on Windows..."
         echo
     fi
+    set -o errexit
 }
 
 # #######################################################
@@ -1609,6 +1610,14 @@ ops_manager_clean() {
     DBPATH="$(_user_dir)/${MONGOD_INSTALL_DIR}"
     echo "Removing all data from ${DBPATH}..."
     rm -rf "${DBPATH:?}"/*
+
+    # Default TGZ install dir
+    local install_dir
+    install_dir="$(_get_tgz_install_dir)"
+    if [ -d "${install_dir}" ]; then
+        echo "Deleting ${install_dir}..."
+        rm -rf "${install_dir}"
+    fi
 
     echo "The Ops Manager environment was reset."
     echo
