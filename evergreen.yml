@@ -29,7 +29,7 @@ functions:
         shell: bash
         script: |
           set -e
-          src/bin/ego seed-local ${workdir}
+          bin/ego seed-local ${workdir}
           ${workdir}/.ego/ego link
 
   "install ops manager":
