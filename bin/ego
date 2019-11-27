@@ -45,9 +45,9 @@ set -o errexit
 #       Wherever this is the case, the script will alert you and in some cases stop execution altogether.
 #
 
-readonly DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+readonly DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
-readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_om_port get_om_scheme is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
+readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_install_cmd get_om_port get_om_scheme is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
 # Other settings
 declare -a curl_opts
@@ -92,7 +92,9 @@ MMS_INSTALL_DIR="/opt/mongodb/mms"
 NC="$(command -v nc 2>&1 || command -v netcat 2>&1 || echo "Missing netcat commmand" >&2)"
 SSH="$(command -v ssh 2>&1 || echo "Missing ssh commmand" >&2)"
 TIMEOUT="$(command -v gtimeout 2>&1 || command -v timeout 2>&1 || echo "Missing timeout commmand" >&2)"
-if [[ -z "$NC" || -z "$SSH" || -z "$TIMEOUT" ]]; then
+if [[ -z "$SSH" || -z "$TIMEOUT" ]]; then
+    echo "Cannot proceeed without necessary commands..."
+    echo
     exit 2
 fi
 
@@ -367,7 +369,7 @@ is_local_port_open() {
     fi
 
     # Attempt to use netcat, or otherwise resort to bash timeouts and /dev/tcp
-    if [ -e "$NC" ]; then
+    if [ -n "$NC" ]; then
         if "$NC" -w 1 127.0.0.1 "$1" </dev/null >/dev/null 2>&1; then
             echo "Port $1 is open!"
             return 0
@@ -398,7 +400,7 @@ wait_for_open_port() {
         FLAG="--foreground"
     fi
 
-    if [ -e "$NC" ]; then
+    if [ -n "$NC" ]; then
         "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while ! '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
     else
         "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while ! '"$TIMEOUT"' '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$2"'" > /dev/null 2>&1; do printf .; sleep 5; done'
@@ -430,7 +432,7 @@ wait_for_closed_port() {
     if "$TIMEOUT" --foreground 1s echo > /dev/null 2>&1; then
         FLAG="--foreground"
     fi
-    if [ -e "$NC" ]; then
+    if [ -n "$NC" ]; then
         "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while '"$NC"' -w 1 '"$1"' '"$2"' </dev/null >/dev/null 2>&1; do printf .; sleep 5; done'
     else
         "$TIMEOUT" ${FLAG} ${timeout_duration} bash -c 'while '"$TIMEOUT"' '${FLAG}' 1s bash -c "cat < /dev/null > /dev/tcp/'"$1"'/'"$1"'" > /dev/null 2>&1; do printf .; sleep 5; done'
@@ -555,13 +557,16 @@ resolve_system_dependencies() {
     done
 }
 _user_dir() {
-    if [[ -n ${SUDO_USER+x} ]]; then
-         # If executing through sudo, retrieve the calling user's dir
-        eval echo "~${SUDO_USER}"
-    else
-        # Otherwise use the home dir
-        echo "${HOME}"
-    fi
+    # TODO: remove
+    # if [[ -n ${SUDO_USER+x} ]]; then
+    #      # If executing through sudo, retrieve the calling user's dir
+    #     eval echo "~${SUDO_USER}"
+    # else
+    #     # Otherwise use the home dir
+    #     echo "${HOME}"
+    # fi
+    #shellcheck disable=SC2005
+    echo "$(cd "$DIR"/../.. && pwd)"
 }
 _curl() {
     $(command -v curl || echo "curl") "$@"
@@ -574,7 +579,7 @@ link() {
             ln -sf "${DIR}/${SCRIPT}" "$p"
         fi
     done
-    echo "Linked."
+    echo "Linked: ${DIR}/${SCRIPT}"
 }
 _set_mongod_vars() {
     if [[ "${PLATFORM}" = "windows" ]]; then # Cygwin
@@ -1011,7 +1016,7 @@ _is_tgz() {
 }
 _get_tgz_install_dir() {
     # Return the default install dir for tgz-s
-    echo "${HOME}/mongodb-mms"
+    echo "$(_user_dir)/mongodb-mms"
 }
 _install_ops_manager() {
     pushd "$(_user_dir)" > /dev/null
@@ -1177,7 +1182,6 @@ get_om_scheme() {
         echo "http"
     fi
 }
-#shellcheck disable=SC2120
 start_ops_manager() {
     local port
     port="$(get_om_port)"
@@ -1238,12 +1242,6 @@ start_ops_manager() {
         echo "Starting the Backup Daemon..."
         net start "MongoDB Backup Daemon Service"
 
-        if [[ "${do_not_wait_for_daemon}" -eq 0 ]]; then
-            echo "Waiting for the Backup Daemon to start..."
-            wait_for_open_local_port "${MMS_DAEMON_PORT}"
-            echo "The Backup Daemon is running."
-        fi
-
     else # Standard Linux
         echo "Starting Ops Manager and the Backup Daemon..."
         service_command start mongodb-mms
@@ -1253,12 +1251,12 @@ start_ops_manager() {
             wait_for_open_local_port "${port}"
             echo "Ops Manager is running."
         fi
+    fi
 
-        if [[ "${do_not_wait_for_daemon}" -eq 0 ]]; then
-            echo "Waiting for the Backup Daemon to start..."
-            wait_for_open_local_port "${MMS_DAEMON_PORT}"
-            echo "The Backup Daemon is running."
-        fi
+    if [[ "${do_not_wait_for_daemon}" -eq 0 ]]; then
+        echo "Waiting for the Backup Daemon to start..."
+        wait_for_open_local_port "${MMS_DAEMON_PORT}"
+        echo "The Backup Daemon is running."
     fi
 }
 stop_ops_manager() {
@@ -1882,10 +1880,23 @@ _scp() {
         scp -vvv "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "$2"
     fi
 }
+_get_install_cmd() {
+    #shellcheck disable=SC2016
+    WORKDIR='$HOME'
+    if [[ "$#" -gt 0 && -n "$1" ]]; then
+        WORKDIR="$1"
+    fi
+
+    echo "mkdir -p ${WORKDIR}/.ego/bin; mv ${SCRIPT} ${WORKDIR}/.ego/bin/; ${WORKDIR}/.ego/bin/${SCRIPT} link"
+}
+seed-local() {
+    #shellcheck disable=SC2091
+    "$(_get_install_cmd "${1-}")"
+}
 seed() {
     # Print usage info
     if [[ "$#" -lt 1 ]]; then
-        echo "Usage: seed user@hostname"
+        echo "Usage: seed user@hostname [WORKDIR]"
         echo
         exit 1
     fi
@@ -1893,15 +1904,14 @@ seed() {
     echo "Deploying ${SCRIPT} to $1..."
     _scp "${DIR}/${SCRIPT}" "$1:"
 
-    # shellcheck disable=SC2016
-    exec_cmd='mkdir -p $HOME/.ego/bin; mv '${SCRIPT}' $HOME/.ego/bin/; $HOME/.ego/bin/'${SCRIPT}' link'
+    remote_exec_cmd="$(_get_install_cmd "${2-}")"
 
     # shellcheck disable=SC2016,SC2086
-    if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${exec_cmd}; then
+    if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd}; then
         # Retry once, with increased verbosity
 
         # shellcheck disable=SC2016,SC2086
-        "$SSH" -vvv -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${exec_cmd}
+        "$SSH" -vvv -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd}
     fi
     echo "Deployed ${SCRIPT} to $1..."
 }
@@ -1980,7 +1990,10 @@ main() {
     # Set a TERM var if not already in the env
     _fix_term
 
+    echo
+    echo "--------------"
     echo "Executing: ego $*"
+    echo "--------------"
     "$@"
 }
 
