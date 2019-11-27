@@ -463,6 +463,7 @@ replace_property_in_file() {
     echo "${2}=${3}" >> "${temp_file}"                # Set the new property value
     cat "${temp_file}" > "${1}"                       # Replace the contents of the original file, while preserving any permissions
     rm "${temp_file}"
+    echo "Updated property in ${1}: ${2}=${3}"
 }
 
 # #######################################################
