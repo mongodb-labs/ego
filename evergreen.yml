@@ -1,7 +1,7 @@
 variables:
 
 functions:
-  "fetch source" :
+  "fetch source":
     - command: git.get_project
       type: system
       params:
@@ -92,10 +92,13 @@ functions:
           echo "==>"
           echo "==> Cleaning any pre-installed Ops Manager / MongoDB artifacts"
 
-          src/bin/ego ops_manager_clean
+          ego ops_manager_clean
 
 # Ensure the Evergreen host is clean
 pre:
+  - func: "fetch source"
+  - func: "merge in base branch"
+  - func: "link"
   - func: "clean"
 
 # Print logs and leave nothing behind
@@ -108,9 +111,6 @@ tasks:
   tags:
     - install
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.0.13
@@ -121,9 +121,6 @@ tasks:
   tags:
     - install
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.2.1
@@ -134,9 +131,6 @@ tasks:
   tags:
     - install
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager tgz"
       vars:
         mongodb_version: 4.2.1
@@ -147,9 +141,6 @@ tasks:
   tags:
     - install
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.2.1
@@ -160,9 +151,6 @@ tasks:
   tags:
     - upgrade
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.0.13
