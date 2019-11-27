@@ -557,14 +557,6 @@ resolve_system_dependencies() {
     done
 }
 _user_dir() {
-    # TODO: remove
-    # if [[ -n ${SUDO_USER+x} ]]; then
-    #      # If executing through sudo, retrieve the calling user's dir
-    #     eval echo "~${SUDO_USER}"
-    # else
-    #     # Otherwise use the home dir
-    #     echo "${HOME}"
-    # fi
     #shellcheck disable=SC2005
     echo "$(cd "$DIR"/../.. && pwd -P)"
 }
@@ -1887,7 +1879,7 @@ _get_install_cmd() {
         WORKDIR="$1"
     fi
 
-    echo "mkdir -p ${WORKDIR}/.ego/bin; cp ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/; ${WORKDIR}/.ego/bin/${SCRIPT} link"
+    echo "mkdir -p ${WORKDIR}/.ego/bin; cp ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/; ${WORKDIR}/.ego/bin/${SCRIPT} link"
 }
 seed-local() {
     #shellcheck disable=SC2091
