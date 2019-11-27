@@ -1646,7 +1646,7 @@ ops_manager_install_version() {
     
     local version=
     local mongodb_version=
-    local central_url=
+    local central_url="http://localhost:${MMS_PORT}"
     local ssl_hostname=
     local tgz=
     while [[ "$#" -gt 0 ]]; do
@@ -1980,6 +1980,7 @@ main() {
     # Set a TERM var if not already in the env
     _fix_term
 
+    echo "Executing: ego $*"
     "$@"
 }
 
