@@ -150,14 +150,14 @@ tasks:
         version: 4.2.3
     - func: "uninstall ops manager"
 
-- name: INSTALL_OPS_MANAGER_4.2_TGZ
+- name: INSTALL_OPS_MANAGER_4.3_TGZ
   tags:
     - install
   commands:
     - func: "install ops manager tgz"
       vars:
         mongodb_version: 4.2.1
-        version: 4.2.3
+        version: 4.3.3
     - func: "uninstall ops manager"
 
 - name: INSTALL_OPS_MANAGER_4.3
@@ -167,7 +167,7 @@ tasks:
     - func: "install ops manager"
       vars:
         mongodb_version: 4.2.1
-        version: 4.3.2
+        version: 4.3.3
     - func: "uninstall ops manager"
 
 - name: INSTALL_4.0-UPGRADE_4.2-UPGRADE_4.3
