@@ -1311,13 +1311,13 @@ stop_ops_manager() {
 
     if [[ "${do_not_wait_for_port}" -eq 0 ]]; then
         echo "Waiting for Ops Manager to stop..."
-        wait_for_open_local_port "${port}"
+        wait_for_closed_local_port "${port}"
         echo "Ops Manager is not running."
     fi
 
     if [[ "${do_not_wait_for_daemon}" -eq 0 ]]; then
         echo "Waiting for the Backup Daemon to stop..."
-        wait_for_open_local_port "${MMS_DAEMON_PORT}"
+        wait_for_closed_local_port "${MMS_DAEMON_PORT}"
         echo "The Backup Daemon is not running."
     fi
 }
