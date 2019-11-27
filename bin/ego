@@ -1879,7 +1879,7 @@ _get_install_cmd() {
         WORKDIR="$1"
     fi
 
-    echo "mkdir -p ${WORKDIR}/.ego/bin; cp ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/; ${WORKDIR}/.ego/bin/${SCRIPT} link"
+    echo "mkdir -p ${WORKDIR}/.ego/bin; cp ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT}; ${WORKDIR}/.ego/bin/${SCRIPT} link"
 }
 seed-local() {
     #shellcheck disable=SC2091
