@@ -79,8 +79,8 @@ functions:
           
           # Determine install directory
           DIR=/opt/mongodb/mms
-          if [ -d "$HOME/mongodb-mms" ]; then
-            DIR="$HOME/mongodb-mms"
+          if [ -d "${workdir}/mongodb-mms" ]; then
+            DIR="${workdir}/mongodb-mms"
           else
             echo "==>"
             echo "==> Service Status:"
