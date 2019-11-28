@@ -183,7 +183,7 @@ tasks:
         version: 4.2.2
     - func: "install ops manager"
       vars:
-        version: 4.3.2
+        version: 4.3.3
     - func: "uninstall ops manager"
 
 buildvariants:
