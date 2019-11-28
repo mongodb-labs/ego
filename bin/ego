@@ -43,6 +43,7 @@ set -o errexit
 #
 # NOTE: Not all actions can be performed in all systems, due to various incompatibilities.
 #       Wherever this is the case, the script will alert you and in some cases stop execution altogether.
+# NOTE 2: If you want to enable explicit debugging, you can do so by: `export EGO_DEBUG=1` before running `ego`
 #
 
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -74,7 +75,11 @@ ssh_opts[9]="-o"
 ssh_opts[10]="ServerAliveInterval=15"
 ssh_opts[11]="-o"
 ssh_opts[12]="ServerAliveCountMax=20"
-#ssh_opts[13]="-vvv" # DEBUG mode
+if [[ "${EGO_DEBUG-}" -eq 1 ]];then
+    # Enable debug mode (bash and ssh client)
+    set -vx
+    ssh_opts[13]="-vvv"
+fi
 readonly ssh_opts
 readonly timeout_duration="10m"
 declare -ri DEFAULT_MMS_MONGODB_PORT=27017
@@ -1219,7 +1224,7 @@ start_ops_manager() {
         fi
 
         echo "Starting Ops Manager as the current user (${USER})..."
-        nohup "${install_dir}"/bin/start-mongodb-mms --enc-key-path "${enc_key_path}" &
+        nohup "${install_dir}"/bin/start-mongodb-mms --enc-key-path "${enc_key_path}" > "${NOHUP_LOG_FILE}" 2>&1 &
 
     elif [[ "${PLATFORM}" = "windows" ]]; then # Windows
         echo "Starting Ops Manager..."
@@ -1895,7 +1900,7 @@ seed() {
         exit 1
     fi
 
-    echo "Deploying ${SCRIPT} to $1..."
+    echo "Deploying '${SCRIPT}' to '$1'..."
     _scp "${DIR}/${SCRIPT}" "$1:"
 
     #shellcheck disable=SC2016
@@ -1904,7 +1909,7 @@ seed() {
         WORKDIR="$2"
     fi
 
-    remote_exec_cmd="mkdir -p ${WORKDIR}/.ego/bin; cp ${DIR}/${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT}; ${WORKDIR}/.ego/bin/${SCRIPT} link"
+    remote_exec_cmd="mkdir -p ${WORKDIR}/.ego/bin; cp ${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT}; ${WORKDIR}/.ego/bin/${SCRIPT} link"
 
     # shellcheck disable=SC2016,SC2086
     if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd}; then
@@ -1991,9 +1996,10 @@ main() {
     _fix_term
 
     echo
-    echo "--------------"
+    echo "------------------"
     echo "Executing: ${SCRIPT} $*"
-    echo "--------------"
+    echo "------------------"
+    echo
     "$@"
 }
 
