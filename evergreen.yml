@@ -195,3 +195,12 @@ buildvariants:
   tasks:
   - name: .install
   - name: .upgrade
+- name: rhel7
+  display_name: RHEL 7.x
+  run_on:
+  - rhel70
+  - rhel76-build
+  expansions:
+  tasks:
+  - name: .install
+  - name: .upgrade
