@@ -1212,8 +1212,7 @@ start_ops_manager() {
 
         local install_dir
         install_dir="$(_get_tgz_install_dir)"
-        local enc_key_path="${install_dir}/etc/gen.key"
-
+        local enc_key_path="${install_dir}/.mongodb-mms/gen.key"
         if [ ! -f "${enc_key_path}" ]; then
             echo "Generating a new Encryption Key: ${enc_key_path}..."
             "${install_dir}"/bin/mms-gen-key -f "${enc_key_path}"
@@ -1754,8 +1753,10 @@ ops_manager_install_from_link() {
     _install_ops_manager --archive "$archive" $upgrade
 
     local extra_options=
+    local extra_start_options=
     if _is_tgz "${archive}"; then
         extra_options="--install-dir $(_get_tgz_install_dir)"
+        extra_start_options="--skip-waiting-for-daemon"
     fi
     #shellcheck disable=SC2086
     _configure_ops_manager --skip-registration-wizard \
@@ -1772,7 +1773,7 @@ ops_manager_install_from_link() {
     fi
 
     # Start the service
-    start_ops_manager --archive "$archive"
+    start_ops_manager --archive "$archive" ${extra_start_options}
 }
 
 # TODO: continue reviewing from here
