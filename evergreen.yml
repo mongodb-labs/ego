@@ -1,7 +1,7 @@
 variables:
 
 functions:
-  "fetch source" :
+  "fetch source":
     - command: git.get_project
       type: system
       params:
@@ -20,16 +20,20 @@ functions:
           fi
 
           # merge before checking
+          echo "==>"
+          echo "==> Merging in the base branch"
           git merge ${branch_name}
 
-  "link":
+  "ego install":
     - command: shell.exec
       params:
         working_dir: src
         shell: bash
         script: |
           set -e
-          bin/ego link
+          echo "==>"
+          echo "==> Installing ego"
+          bin/ego seed-local ${workdir}
 
   "install ops manager":
     - command: shell.exec
@@ -38,7 +42,20 @@ functions:
         shell: bash
         script: |
           set -e
+          echo "==>"
+          echo "==> Installing Ops Manager ${version}"
           bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version}
+
+  "install ops manager tgz":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -e
+          echo "==>"
+          echo "==> Installing Ops Manager ${version} (tgz)"
+          bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version} --tgz
 
   "uninstall ops manager":
     - command: shell.exec
@@ -47,57 +64,76 @@ functions:
         shell: bash
         script: |
           set -e
+          echo "==>"
+          echo "==> Uninstalling Ops Manager"
           bin/ego ops_manager_uninstall
+
+  "get logs":
+    - command: shell.exec
+      params:
+        type: system
+        shell: bash
+        script: |
+          echo "==>"
+          echo "==> Printing any existing Ops Manager Logs"
+          
+          # Determine install directory
+          DIR=/opt/mongodb/mms
+          if [ -d "${workdir}/mongodb-mms" ]; then
+            DIR="${workdir}/mongodb-mms"
+          else
+            echo "==>"
+            echo "==> Service Status:"
+            ego service_command status mongodb-mms
+          fi
+
+          echo "==>"
+          echo "==> $DIR/logs/mms-migration.log"
+          cat "$DIR/logs/mms-migration.log" 2>/dev/null || echo "No logs found."
+
+          echo "==>"
+          echo "==> $DIR/logs/daemon.log"
+          cat "$DIR/logs/daemon.log" 2>/dev/null || echo "No logs found."
+
+          echo "==>"
+          echo "==> $DIR/logs/daemon-startup.log"
+          cat "$DIR/logs/daemon-startup.log" 2>/dev/null || echo "No logs found."
+
+          echo "==>"
+          echo "==> $DIR/logs/mms0-startup.log"
+          cat "$DIR/logs/mms0-startup.log" 2>/dev/null || echo "No logs found."
+
+          echo "==>"
+          echo "==> $DIR/logs/mms0.log"
+          cat "$DIR/logs/mms0.log" 2>/dev/null || echo "No logs found."
 
   "clean":
     - command: shell.exec
       params:
-        working_dir: src
         type: system
         shell: bash
         script: |
-          echo "Outputting Ops Manager logs:"
-          
           echo "==>"
-          echo "==> mms-migration.log"
-          cat /opt/mongodb/mms/logs/mms-migration.log || echo "No logs found."
-
-          echo "==>"
-          echo "==> mms0-startup.log"
-          cat /opt/mongodb/mms/logs/mms0-startup.log || echo "No logs found."
-
-          echo "==>"
-          echo "==> daemon.log"
-          cat /opt/mongodb/mms/logs/daemon.log || echo "No logs found."
-
-          echo "==>"
-          echo "==> mms0.log"
-          cat /opt/mongodb/mms/logs/mms0.log || echo "No logs found."
-
-    - command: shell.exec
-      params:
-        working_dir: src
-        type: system
-        shell: bash
-        script: |
-          bin/ego ops_manager_clean
+          echo "==> Cleaning any pre-installed Ops Manager / MongoDB artifacts"
+          ego ops_manager_clean
 
 # Ensure the Evergreen host is clean
 pre:
-  - func: clean
+  - func: "fetch source"
+  - func: "merge in base branch"
+  - func: "ego install"
+  - func: "clean"
 
-# Leave nothing behind
+# Print logs and leave nothing behind
 post:
-  - func: clean
+  - func: "get logs"
+  - func: "clean"
 
 tasks:
 - name: INSTALL_OPS_MANAGER_4.0
   tags:
     - install
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.0.13
@@ -108,35 +144,36 @@ tasks:
   tags:
     - install
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.2.1
         version: 4.2.3
     - func: "uninstall ops manager"
 
+- name: INSTALL_OPS_MANAGER_4.3_TGZ
+  tags:
+    - install
+  commands:
+    - func: "install ops manager tgz"
+      vars:
+        mongodb_version: 4.2.1
+        version: 4.3.3
+    - func: "uninstall ops manager"
+
 - name: INSTALL_OPS_MANAGER_4.3
   tags:
     - install
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.2.1
-        version: 4.3.2
+        version: 4.3.3
     - func: "uninstall ops manager"
 
 - name: INSTALL_4.0-UPGRADE_4.2-UPGRADE_4.3
   tags:
     - upgrade
   commands:
-    - func: "fetch source"
-    - func: "merge in base branch"
-    - func: "link"
     - func: "install ops manager"
       vars:
         mongodb_version: 4.0.13
@@ -146,7 +183,7 @@ tasks:
         version: 4.2.2
     - func: "install ops manager"
       vars:
-        version: 4.3.2
+        version: 4.3.3
     - func: "uninstall ops manager"
 
 buildvariants:
