@@ -473,7 +473,7 @@ replace_property_in_file() {
 #                SYSTEM/TEST DEPENDENCIES
 # #######################################################
 
-DEPS="unzip curl jq squid openssl nc netcat xdg-utils libxss1 libappindicator1 libindicator7 fonts-liberation libappindicator3-1 libdbusmenu-gtk3-4 libssl1.0-dev"
+DEPS="unzip curl jq squid openssl nc netcat ncurses-term xdg-utils libxss1 libappindicator1 libindicator7 fonts-liberation libappindicator3-1 libdbusmenu-gtk3-4 libssl1.0-dev"
 _wait_for_process_to_finish() {
     echo "Waiting for ${timeout_duration} for $1 to complete any running jobs..."
 
@@ -565,7 +565,7 @@ _curl() {
     $(command -v curl || echo "curl") "$@"
 }
 link() {
-    echo "Linking EGO in the system path..."
+    echo "Linking '${DIR}/${SCRIPT}' in the system path..."
     # Link the script to make it available for running
     for p in /usr/local/bin /usr/bin; do
         if echo "$PATH" | grep -q "$p"; then
@@ -1127,7 +1127,7 @@ _uninstall_ops_manager() {
     local install_dir
     install_dir="$(_get_tgz_install_dir)"
 
-    if [[ ! -d "${install_dir}" || -z "$installed_package" ]]; then
+    if [[ ! -d "${install_dir}" && -z "$installed_package" ]]; then
         echo "Ops Manager is not present on this host. Skipping uninstall..."
         echo
         return
@@ -1880,6 +1880,7 @@ seed-local() {
         WORKDIR="$1"
     fi
 
+    echo "Installing ego to ${WORKDIR}"
     mkdir -p "${WORKDIR}/.ego/bin"
     cp "${DIR}/${SCRIPT}" "${WORKDIR}/.ego/bin/"
     chmod a+x "${WORKDIR}/.ego/bin/${SCRIPT}"
