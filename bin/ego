@@ -43,6 +43,7 @@ set -o errexit
 #
 # NOTE: Not all actions can be performed in all systems, due to various incompatibilities.
 #       Wherever this is the case, the script will alert you and in some cases stop execution altogether.
+# NOTE 2: If you want to enable explicit debugging, you can do so by: `export EGO_DEBUG=1` before running `ego`
 #
 
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"

@@ -45,6 +45,12 @@ ego run user@REMOTE_HOST ego ops_manager_install_version --version 4.2.3 --mongo
 ```
 
 
+### Debugging
+
+If you want to enable explicit debugging of all ego actions and ssh traffic, 
+you can: `export EGO_DEBUG=1` before running `ego`.
+
+
 # LICENSE
 
 'ego' is free and the source is available. Ego is published
