@@ -1115,10 +1115,14 @@ _find_installed_package() {
         exit 1
 
     elif [[ "${PLATFORM}" = "debian" ]] || [[ "${PLATFORM}" = "ubuntu" ]]; then # Debian/Ubuntu
-        dpkg --get-selections | grep -v "deinstall" | grep "$1" | awk '{print $1}'
+        set +o errexit # do not fail here
+        dpkg --get-selections | grep -v "deinstall" | grep -s "$1" | awk '{print $1}'
+        set -o errexit
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ "${PLATFORM}" = "amazon" ]] || [[ "${PLATFORM}" = "suse" ]]; then # Red Hat/Amazon Linux/SuSe
+        set +o errexit # do not fail here
         rpm -qa | grep "$1"
+        set -o errexit
     fi
 }
 _uninstall_ops_manager() {
@@ -1368,6 +1372,12 @@ _iptables_deny_all() {
     iptables -A OUTPUT -p tcp -j REJECT --reject-with tcp-reset
 }
 _iptables_allow_all() {
+    if ! command -v iptables >/dev/null 2>&1; then
+        echo "The iptables utility is not available; cannot set firewall rules..."
+        echo
+        return
+    fi
+
     # Reset the access policies to prevent getting locked out
     iptables --policy INPUT   ACCEPT
     iptables --policy OUTPUT  ACCEPT
@@ -1386,6 +1396,12 @@ _iptables_allow_outgoing_for_user() {
     iptables -I OUTPUT 2 --proto tcp --dport 443 --match state --match owner --uid-owner "$1" --state NEW,ESTABLISHED --jump ACCEPT
 }
 _iptables_show() {
+    if ! command -v iptables >/dev/null 2>&1; then
+        echo "The iptables utility is not available; cannot set firewall rules..."
+        echo
+        return
+    fi
+
     # Show current iptables rules
     echo
     echo "Current iptables rules:"
@@ -1661,9 +1677,6 @@ ops_manager_install_version() {
 
     echo "Installing Ops Manager version: ${version}"
 
-    _iptables_allow_all
-    resolve_system_dependencies
-
     echo "Searching for Ops Manager archive (version='${version}', tgz='$tgz')"
     local archive
     archive="$(_identify_installable_om_archive --version "$version" $tgz)"
@@ -1710,9 +1723,6 @@ ops_manager_install_from_link() {
 
     echo "Installing Ops Manager from: $archive"
 
-    _iptables_allow_all
-    resolve_system_dependencies
-
     local upgrade=
     installed_package="$(_find_installed_package mongodb-mms)"
     if [[ -n "$installed_package" ]]; then
@@ -1720,6 +1730,9 @@ ops_manager_install_from_link() {
         echo "Performing an upgrade..."
         echo
         upgrade="--upgrade"
+    else
+        echo "Installing Ops Manager..."
+        echo
     fi
 
     if [[ -z "$upgrade" ]]; then
@@ -1888,6 +1901,7 @@ seed-local() {
     cp "${DIR}/${SCRIPT}" "${WORKDIR}/.ego/bin/"
     chmod a+x "${WORKDIR}/.ego/bin/${SCRIPT}"
     "${WORKDIR}/.ego/bin/${SCRIPT}" link
+    "${WORKDIR}/.ego/bin/${SCRIPT}" resolve_system_dependencies
 }
 seed() {
     # Print usage info
@@ -1906,15 +1920,21 @@ seed() {
         WORKDIR="$2"
     fi
 
-    remote_exec_cmd="mkdir -p ${WORKDIR}/.ego/bin; cp ${SCRIPT} ${WORKDIR}/.ego/bin/; chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT}; ${WORKDIR}/.ego/bin/${SCRIPT} link"
+    declare -a remote_exec_cmd=()
+    remote_exec_cmd+=("mkdir -p ${WORKDIR}/.ego/bin;")
+    remote_exec_cmd+=("cp ${SCRIPT} ${WORKDIR}/.ego/bin/;")
+    remote_exec_cmd+=("chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT};")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} link;")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} resolve_system_dependencies")
 
     # shellcheck disable=SC2016,SC2086
-    if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd}; then
+    if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd[*]}; then
         # Retry once, with increased verbosity
 
         # shellcheck disable=SC2016,SC2086
-        "$SSH" -vvv -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd}
+        "$SSH" -vvv -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd[*]}
     fi
+    echo
     echo "Deployed ${SCRIPT} to $1..."
 }
 ssh() {
