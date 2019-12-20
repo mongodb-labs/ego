@@ -28,6 +28,7 @@ has_command() {
 }
 
 download() {
+    echo "Downloading $* ..."
     if command -v curl; then
         HTTPS_PROXY=${HTTPS_PROXY:-$https_proxy}
         "$(command -v curl)" --silent --location --remote-name "$@"
