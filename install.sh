@@ -42,6 +42,29 @@ download() {
     fi
 }
 
+link() {
+    # Add ego to the user's PATH
+    if [ ! -f "$1" ]; then
+        # Do nothing if the file does not exist
+        return
+    fi
+
+    if grep -qs "# EGO" "$1"; then
+        # Already linked, do nothing
+        return
+    fi
+
+    # Add ego to the user's shell PATH
+    (
+    echo ""
+    echo "# EGO"
+    echo "export PATH=\"$EGO_HOME/bin:\$PATH\""
+    echo ""
+    ) | tee -a "$1"
+    echo "Added ${SCRIPT} to PATH via $1 ..."
+    echo
+}
+
 echo "Installing ${SCRIPT}..."
 echo
 pushd "${EGO_HOME}/bin" > /dev/null || ( echo "Could not change dir to ${EGO_HOME}; exiting"; exit 1 )
@@ -51,7 +74,10 @@ popd > /dev/null || exit 2
 
 echo "Linking ego in the system path"
 echo
-"${EGO_HOME}/bin/${SCRIPT}" link
+link "${HOME}/.zshrc"
+link "${HOME}/.bashrc"
+link "${HOME}/.profile"
+link "${HOME}/.bash_profile"
 
 echo ""
 echo "Installation complete!"

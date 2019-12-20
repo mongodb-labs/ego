@@ -571,15 +571,14 @@ _curl() {
 }
 link() {
     echo "Linking '${DIR}/${SCRIPT}' in the system path..."
-    echo "You may be asked for system-user (sudo) permissions!"
 
-    if [ -d /usr/local/bin ] && ( echo "$PATH" | grep -q "/usr/local/bin" ); then
+    if [ -d /usr/local/bin ] && ( echo "${PATH}" | grep -q "/usr/local/bin" ); then
         echo "Attempting to link ${SCRIPT} in /usr/local/bin"
-        sudo ln -sf "${DIR}/${SCRIPT}" "/usr/local/bin/${SCRIPT}"
+        ln -sf "${DIR}/${SCRIPT}" "/usr/local/bin/${SCRIPT}"
         echo "Linked."
-    elif [ -d /usr/bin ] && ( echo "$PATH" | grep -q "/usr/bin" ); then
+    elif [ -d /usr/bin ] && ( echo "${PATH}" | grep -q "/usr/bin" ); then
         echo "Attempting to link ${SCRIPT} in /usr/bin"
-        sudo ln -sf "${DIR}/${SCRIPT}" "/usr/bin/${SCRIPT}"
+        ln -sf "${DIR}/${SCRIPT}" "/usr/bin/${SCRIPT}"
         echo "Linked."
     else
         echo "Could not link ${SCRIPT}; please add it manually to your path:"
