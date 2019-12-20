@@ -86,7 +86,7 @@ declare -ri DEFAULT_MMS_MONGODB_PORT=27017
 declare -ri DEFAULT_MMS_BLOCKSTORE_MONGODB_PORT=27018
 readonly JQ_VERSION="1.6"
 readonly MONGOD_INSTALL_DIR="data"
-readonly NOHUP_LOG_FILE="ego.log"
+readonly NOHUP_LOG_FILE="${SCRIPT}.log"
 readonly NOHUP_PROV_FILE="provision.bash"
 declare -i MMS_PORT=9080
 declare -i MMS_SSL_PORT=9443
@@ -571,13 +571,21 @@ _curl() {
 }
 link() {
     echo "Linking '${DIR}/${SCRIPT}' in the system path..."
-    # Link the script to make it available for running
-    for p in /usr/local/bin /usr/bin; do
-        if echo "$PATH" | grep -q "$p"; then
-            ln -sf "${DIR}/${SCRIPT}" "$p"
-        fi
-    done
-    echo "Linked: ${DIR}/${SCRIPT}"
+    echo "You may be asked for system-user (sudo) permissions!"
+
+    if [ -d /usr/local/bin ] && ( echo "$PATH" | grep -q "/usr/local/bin" ); then
+        echo "Attempting to link ${SCRIPT} in /usr/local/bin"
+        sudo ln -sf "${DIR}/${SCRIPT}" "/usr/local/bin/${SCRIPT}"
+        echo "Linked."
+    elif [ -d /usr/bin ] && ( echo "$PATH" | grep -q "/usr/bin" ); then
+        echo "Attempting to link ${SCRIPT} in /usr/bin"
+        sudo ln -sf "${DIR}/${SCRIPT}" "/usr/bin/${SCRIPT}"
+        echo "Linked."
+    else
+        echo "Could not link ${SCRIPT}; please add it manually to your path:"
+        echo "export PATH=${DIR}:\$PATH"
+        echo
+    fi
 }
 _set_mongod_vars() {
     if [[ "${PLATFORM}" = "windows" ]]; then # Cygwin

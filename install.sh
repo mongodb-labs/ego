@@ -12,10 +12,10 @@ EGO_HOME="${HOME}/.ego"
 
 # Ensure ego's work dirs are created
 if [ ! -d "$EGO_HOME" ]; then
-    mkdir "${EGO_HOME}"
+    mkdir -p "${EGO_HOME}"
 fi
 if [ ! -d "$EGO_HOME/bin" ]; then
-    mkdir "${EGO_HOME}/bin"
+    mkdir -p "${EGO_HOME}/bin"
 fi
 
 has_command() {
@@ -43,6 +43,7 @@ echo "Installing ego..."
 echo
 pushd "${EGO_HOME}/bin" > /dev/null || ( echo "Could not change dir to ${EGO_HOME}; exiting"; exit 1 )
 download "https://github.com/mongodb-labs/ego/blob/master/bin/ego"
+chmod u+x ego
 popd > /dev/null || exit 2
 
 echo "Linking ego in the system path"
