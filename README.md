@@ -27,9 +27,9 @@ as some actions require elevated privileges to complete.
 1\. Install ego locally
 
 ```shell
-curl -sL https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
+curl -sL https://raw.githubusercontent.com/mongodb-labs/ego/master/install.sh | bash
 # or
-wget -qO- https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/mongodb-labs/ego/master/install.sh | bash
 ```
 
 2\. Deploy ego in the target system

@@ -4,7 +4,7 @@
 #
 # Downloads and links ego locally
 # Run with:
-# curl -sL https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
+# curl -sL https://raw.githubusercontent.com/mongodb-labs/ego/master/install.sh | bash
 #
 declare -r SCRIPT="ego"
 declare -r REPO="mongodb-labs/ego"
