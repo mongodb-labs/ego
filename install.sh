@@ -6,9 +6,11 @@
 # Run with:
 # curl -sL https://github.com/mongodb-labs/ego/raw/master/install.sh | bash
 #
+declare -r SCRIPT="ego"
+declare -r REPO="mongodb-labs/ego"
 
 { # download entire script
-EGO_HOME="${HOME}/.ego"
+EGO_HOME="${HOME}/.${SCRIPT}"
 
 # Ensure ego's work dirs are created
 if [ ! -d "$EGO_HOME" ]; then
@@ -39,20 +41,20 @@ download() {
     fi
 }
 
-echo "Installing ego..."
+echo "Installing ${SCRIPT}..."
 echo
 pushd "${EGO_HOME}/bin" > /dev/null || ( echo "Could not change dir to ${EGO_HOME}; exiting"; exit 1 )
-download "https://github.com/mongodb-labs/ego/blob/master/bin/ego"
-chmod u+x ego
+download "https://raw.githubusercontent.com/${REPO}/master/bin/${SCRIPT}"
+chmod u+x "${SCRIPT}"
 popd > /dev/null || exit 2
 
 echo "Linking ego in the system path"
 echo
-"${EGO_HOME}/bin/ego" link
+"${EGO_HOME}/bin/${SCRIPT}" link
 
 echo ""
 echo "Installation complete!"
-echo "Please report any issues at: https://github.com/mongodb-labs/ego/issues"
+echo "Please report any issues at: https://github.com/${REPO}/issues"
 echo
 
 } # download entire script
