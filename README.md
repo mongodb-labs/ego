@@ -30,18 +30,23 @@ as some actions require elevated privileges to complete.
 curl -sL https://raw.githubusercontent.com/mongodb-labs/ego/master/install.sh | bash
 # or
 wget -qO- https://raw.githubusercontent.com/mongodb-labs/ego/master/install.sh | bash
+
+# After installing, source the corresponding file for your shell, e.g.:
+source ~/.bashrc
 ```
 
 2\. Deploy ego in the target system
 
 ```shell
-ego seed user@REMOTE_HOST
+REMOTE_USER=...
+REMOTE_HOST=...
+ego seed "$REMOTE_USER@$REMOTE_HOST"
 ```
 
 3\. Install Ops Manager
 
 ```shell
-ego run user@REMOTE_HOST ego ops_manager_install_version --version 4.2.3 --mongodb-version 4.2.1
+ego run "$REMOTE_USER@$REMOTE_HOST" ego ops_manager_install_version --version 4.2.15 --mongodb-version 4.2.8
 ```
 
 
@@ -49,6 +54,29 @@ ego run user@REMOTE_HOST ego ops_manager_install_version --version 4.2.3 --mongo
 
 If you want to enable explicit debugging of all ego actions and ssh traffic, 
 you can: `export EGO_DEBUG=1` before running `ego`.
+
+
+## Docker
+
+You can also install and `ego` in [Docker](https://docs.docker.com/get-docker/).
+
+```shell
+
+# First, build the image
+# NOTE: you can always rebuild the image (i.e., after making local changes), by running make again
+make
+
+# You can then run ego in docker by executing the following command
+docker run -it $(make exec) [ARGS]
+```
+
+For example, you can provision Ops Manager on a remote host by running:
+```shell
+REMOTE_USER=...
+REMOTE_HOST=...
+docker run -it $(make exec) seed "$REMOTE_USER@$REMOTE_HOST"
+docker run -it $(make exec) run "$REMOTE_USER@$REMOTE_HOST" ego ops_manager_install_version --version 4.2.15 --mongodb-version 4.2.8
+```
 
 
 # LICENSE
