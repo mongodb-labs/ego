@@ -1,7 +1,7 @@
 variables:
-- &archive_deb
+- &package_deb
   archive: "https://downloads.mongodb.com/on-prem-mms/deb/mongodb-mms_4.2.15.56937.20200701T0316Z-1_x86_64.deb"
-- &archive_rpm
+- &package_rpm
   archive: "https://downloads.mongodb.com/on-prem-mms/rpm/mongodb-mms-4.2.15.56937.20200701T0316Z-1.x86_64.rpm"
 
 functions:
@@ -50,7 +50,7 @@ functions:
           echo "==> Installing Ops Manager ${version}"
           bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version}
 
-  "install ops manager archive":
+  "install ops manager package":
     - command: shell.exec
       params:
         working_dir: src
@@ -58,7 +58,7 @@ functions:
         script: |
           set -e
           echo "==>"
-          echo "==> Installing Ops Manager ${archive}"
+          echo "==> Installing Ops Manager Package: ${archive}"
           bin/ego ops_manager_install_from_link --archive ${archive} --mongodb-version ${mongodb_version}
 
   "install ops manager tgz":
@@ -165,12 +165,12 @@ tasks:
         version: 4.2.3
     - func: "uninstall ops manager"
 
-- name: INSTALL_OPS_MANAGER_4.2_ARCHIVE
+- name: INSTALL_OPS_MANAGER_4.2_PACKAGE
   tags:
-    - install_archive_deb
-    - install_archive_rpm
+    - install_package_deb
+    - install_package_rpm
   commands:
-    - func: "install ops manager archive"
+    - func: "install ops manager package"
       vars:
         mongodb_version: 4.2.8
         archive: ${archive}
@@ -217,18 +217,18 @@ buildvariants:
   display_name: Ubuntu 18.04
   run_on: ubuntu1804-build
   expansions:
-    *archive_deb
+    *package_deb
   tasks:
   - name: .install
-  - name: .install_archive_deb
+  - name: .install_package_deb
   - name: .upgrade
 
 - name: rhel-7.6
   display_name: RHEL 7.6
   run_on: rhel76-build
   expansions:
-    *archive_rpm
+    *package_rpm
   tasks:
   - name: .install
-  - name: .install_archive_rpm
+  - name: .install_package_rpm
   - name: .upgrade
