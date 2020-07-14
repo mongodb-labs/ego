@@ -194,7 +194,11 @@ _determine_architecture() {
 
     elif uname -a | grep -q Ubuntu > /dev/null 2>&1; then # Ubuntu
         PLATFORM="ubuntu"
-        if lsb_release -a 2>&1 | grep 18.04 > /dev/null 2>&1; then
+        if lsb_release -a 2>&1 | grep 20.04 > /dev/null 2>&1; then
+            OSVER=20
+            MDB_ARCH="x86_64-ubuntu2004"
+
+        elif lsb_release -a 2>&1 | grep 18.04 > /dev/null 2>&1; then
             OSVER=18
             MDB_ARCH="x86_64-ubuntu1804"
 
@@ -212,47 +216,52 @@ _determine_architecture() {
 
     elif lsb_release -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 8" > /dev/null; then # Red Hat 8
         PLATFORM="rhel"
-        OSVER="8"
+        OSVER=8
         MDB_ARCH="x86_64-rhel80"
 
     elif lsb_release -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 7" > /dev/null; then # Red Hat 7
         PLATFORM="rhel"
-        OSVER="7"
+        OSVER=7
         MDB_ARCH="x86_64-rhel70"
 
     elif [[ -f /etc/os-release ]] && grep PRETTY /etc/os-release | grep -qE 'Red Hat.+ 8' > /dev/null; then # Red Hat 8
         PLATFORM="rhel"
-        OSVER="8"
+        OSVER=8
         MDB_ARCH="x86_64-rhel80"
 
     elif [[ -f /etc/os-release ]] && grep PRETTY /etc/os-release | grep -qE 'Red Hat.+ 7' > /dev/null; then # Red Hat 7
         PLATFORM="rhel"
-        OSVER="7"
+        OSVER=7
         MDB_ARCH="x86_64-rhel70"
+
+    elif [[ -f /etc/os-release ]] && grep PRETTY /etc/os-release | grep -qE 'Ubuntu 20\.04' > /dev/null; then # Ubuntu 20.04
+        PLATFORM="ubuntu"
+        OSVER=20
+        MDB_ARCH="x86_64-ubuntu2004"
 
     elif [[ -f /etc/system-release ]] && grep -qE 'Red Hat.+ 8' /etc/system-release > /dev/null; then # Red Hat 8
         PLATFORM="rhel"
-        OSVER="8"
+        OSVER=8
         MDB_ARCH="x86_64-rhel80"
 
     elif [[ -f /etc/system-release ]] && grep -qE 'Red Hat.+ 7' /etc/system-release > /dev/null; then # Red Hat 7
         PLATFORM="rhel"
-        OSVER="7"
+        OSVER=7
         MDB_ARCH="x86_64-rhel70"
 
     elif lsb_release -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 6" > /dev/null; then
         PLATFORM="rhel"
-        OSVER="6"
+        OSVER=6
         MDB_ARCH="x86_64-rhel62"
 
     elif [[ -f /etc/os-release ]] && grep PRETTY /etc/os-release | grep -qE 'Red Hat.+ 6' > /dev/null; then # Red Hat 6
         PLATFORM="rhel"
-        OSVER="6"
+        OSVER=6
         MDB_ARCH="x86_64-rhel62"
 
     elif [[ -f /etc/system-release ]] && grep -qE 'Red Hat.+ 6' /etc/system-release > /dev/null; then # Red Hat 6
         PLATFORM="rhel"
-        OSVER="6"
+        OSVER=6
         MDB_ARCH="x86_64-rhel62"
 
     elif [[ -f /etc/os-release ]] && grep PRETTY /etc/os-release | grep -qE 'SUSE.+15' > /dev/null; then # SUSE 15

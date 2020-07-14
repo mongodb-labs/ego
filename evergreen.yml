@@ -1,4 +1,8 @@
 variables:
+- &package_deb
+  archive: "https://downloads.mongodb.com/on-prem-mms/deb/mongodb-mms_4.2.15.56937.20200701T0316Z-1_x86_64.deb"
+- &package_rpm
+  archive: "https://downloads.mongodb.com/on-prem-mms/rpm/mongodb-mms-4.2.15.56937.20200701T0316Z-1.x86_64.rpm"
 
 functions:
   "fetch source":
@@ -45,6 +49,17 @@ functions:
           echo "==>"
           echo "==> Installing Ops Manager ${version}"
           bin/ego ops_manager_install_version --version ${version} --mongodb-version ${mongodb_version}
+
+  "install ops manager package":
+    - command: shell.exec
+      params:
+        working_dir: src
+        shell: bash
+        script: |
+          set -e
+          echo "==>"
+          echo "==> Installing Ops Manager Package: ${archive}"
+          bin/ego ops_manager_install_from_link --archive ${archive} --mongodb-version ${mongodb_version}
 
   "install ops manager tgz":
     - command: shell.exec
@@ -146,8 +161,19 @@ tasks:
   commands:
     - func: "install ops manager"
       vars:
-        mongodb_version: 4.2.1
+        mongodb_version: 4.2.8
         version: 4.2.3
+    - func: "uninstall ops manager"
+
+- name: INSTALL_OPS_MANAGER_4.2_PACKAGE
+  tags:
+    - install_package_deb
+    - install_package_rpm
+  commands:
+    - func: "install ops manager package"
+      vars:
+        mongodb_version: 4.2.8
+        archive: ${archive}
     - func: "uninstall ops manager"
 
 - name: INSTALL_OPS_MANAGER_4.3_TGZ
@@ -156,8 +182,8 @@ tasks:
   commands:
     - func: "install ops manager tgz"
       vars:
-        mongodb_version: 4.2.1
-        version: 4.3.3
+        mongodb_version: 4.2.8
+        version: 4.3.9
     - func: "uninstall ops manager"
 
 - name: INSTALL_OPS_MANAGER_4.3
@@ -166,8 +192,8 @@ tasks:
   commands:
     - func: "install ops manager"
       vars:
-        mongodb_version: 4.2.1
-        version: 4.3.3
+        mongodb_version: 4.2.8
+        version: 4.3.9
     - func: "uninstall ops manager"
 
 - name: INSTALL_4.0-UPGRADE_4.2-UPGRADE_4.3
@@ -183,7 +209,7 @@ tasks:
         version: 4.2.2
     - func: "install ops manager"
       vars:
-        version: 4.3.3
+        version: 4.3.9
     - func: "uninstall ops manager"
 
 buildvariants:
@@ -191,13 +217,18 @@ buildvariants:
   display_name: Ubuntu 18.04
   run_on: ubuntu1804-build
   expansions:
+    *package_deb
   tasks:
   - name: .install
+  - name: .install_package_deb
   - name: .upgrade
+
 - name: rhel-7.6
   display_name: RHEL 7.6
   run_on: rhel76-build
   expansions:
+    *package_rpm
   tasks:
   - name: .install
+  - name: .install_package_rpm
   - name: .upgrade
