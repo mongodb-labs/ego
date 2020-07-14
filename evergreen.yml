@@ -206,7 +206,7 @@ tasks:
         version: 4.0.16
     - func: "install ops manager"
       vars:
-        version: 4.2.15
+        version: 4.2.2
     - func: "install ops manager"
       vars:
         version: 4.3.9
