@@ -557,17 +557,17 @@ resolve_system_dependencies() {
     if [[ "${PLATFORM}" = "debian" ]] || [[ "${PLATFORM}" = "ubuntu" ]]; then # Debian/Ubuntu
         _wait_for_process_to_finish apt
         _wait_for_process_to_finish dpkg
-        #apt-get update -y
+        apt-get update -y
         #_wait_for_process_to_finish apt
         #_wait_for_process_to_finish dpkg
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ "${PLATFORM}" = "amazon" ]]; then # Red Hat / Amazon Linux
         _wait_for_process_to_finish yum
-        #yum update -y --skip-broken
+        yum update -y --skip-broken
 
     elif [[ "${PLATFORM}" = "suse" ]]; then # SuSe
         _wait_for_process_to_finish zypper
-        #zypper -n update --details
+        zypper -n update --details
 
     elif [[ "${PLATFORM}" = "windows" ]]; then # Windows
         echo "Cannot update System Dependencies in Cygwin..."
