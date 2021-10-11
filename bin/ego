@@ -1558,6 +1558,8 @@ ulimits() {
 
     # Increase the number of maximum open files
     # see https://www.mongodb.com/blog/post/tuning-mongodb--linux-to-allow-for-tens-of-thousands-connections
+    echo "Increasing default limits..."
+    echo
     echo "*           soft    nofile          9999999" | sudo tee -a /etc/security/limits.conf
     echo "*           hard    nofile          9999999" | sudo tee -a /etc/security/limits.conf
     echo "*           soft    nproc           9999999" | sudo tee -a /etc/security/limits.conf
