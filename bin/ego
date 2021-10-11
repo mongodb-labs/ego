@@ -25,8 +25,7 @@ set -o errexit
 # - resolve_system_dependencies: install all required system dependencies required to run Ops Manager
 #                               (package and source-code) (Linux-only)
 # - _determine_architecture: detect running distribution and stop execution if not supported
-# - get_host_ip/aws_get_local_ip/aws_get_public_ip: retrieve the running host's private/public IP
-#                                                   (in AWS using the Metadata endpoint)
+# - get_host_ip/aws_get_local_ip/aws_get_public_ip/gcp_get_public_ip: retrieve the running host's private/public IP
 # - service_command: start/stop/restart services (automatically choosing SystemD, SysV, and init.d scripts)
 # - is_local_port_open: detect if a specified port is open
 # - wait_for_open_local_port/wait_for_closed_local_port: wait until the specified port is open/closed on 127.0.0.1
@@ -1475,7 +1474,7 @@ network_access_restrict() {
     _iptables_allow_dns
     _iptables_allow_aws_meta
     _iptables_allow_subnet
-    _iptables_allow_host "$(aws_get_public_ip)"
+    _iptables_allow_host "$(get_public_ip)"
     _iptables_deny_all
     _iptables_show
 }
@@ -1546,7 +1545,7 @@ configure_proxy() {
 # #######################################################
 ssl_generate_server_certificate() {
     if [[ "$#" -eq 0 || -z "$1" ]]; then
-        ssl_hostname="$(aws_get_public_ip)"
+        ssl_hostname="$(get_public_ip)"
         echo "A hostname was not specified; defaulting to: ${ssl_hostname}"
         echo
     else
@@ -1599,7 +1598,7 @@ ssl_generate_server_certificate() {
 }
 ops_manager_configure_ssl() {
     if [[ "$#" -eq 0 || -z "$1" ]]; then
-        ssl_hostname="$(aws_get_public_ip)"
+        ssl_hostname="$(get_public_ip)"
         echo "A hostname was not specified; defaulting to: ${ssl_hostname}"
         echo
     else
@@ -1938,6 +1937,7 @@ seed-local() {
     chmod a+x "${WORKDIR}/.ego/bin/${SCRIPT}"
     "${WORKDIR}/.ego/bin/${SCRIPT}" link
     "${WORKDIR}/.ego/bin/${SCRIPT}" resolve_system_dependencies
+    ulimit -n 999999
 }
 seed() {
     # Print usage info
@@ -1962,6 +1962,7 @@ seed() {
     remote_exec_cmd+=("chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT};")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} link;")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} resolve_system_dependencies")
+    remote_exec_cmd+=("sudo ulimit -n 999999")
 
     # shellcheck disable=SC2016,SC2086
     if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd[*]}; then
