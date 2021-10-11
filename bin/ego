@@ -569,11 +569,17 @@ resolve_system_dependencies() {
         _wait_for_process_to_finish zypper
         zypper -n update --details
 
+        echo "Installing JQ..."
+        pushd "$(_user_dir)" > /dev/null
+        _curl "${curl_opts}" -o "jq" "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64"
+        chmod a+rx jq
+        popd > /dev/null
+
     elif [[ "${PLATFORM}" = "windows" ]]; then # Windows
         echo "Cannot update System Dependencies in Cygwin..."
         echo
 
-        echo "Installing JQ"
+        echo "Installing JQ..."
         pushd "$(_user_dir)" > /dev/null
         _curl "${curl_opts}" -o "jq.exe" "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-win64.exe"
         popd > /dev/null
