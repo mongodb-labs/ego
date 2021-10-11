@@ -754,6 +754,9 @@ start_mongodb() {
     touch "$(_user_dir)/${MONGOD_INSTALL_DIR}/${port}/mongod.log"
     chmod 0777 "$(_user_dir)/${MONGOD_INSTALL_DIR}/${port}/mongod.log"
 
+    # Increase max open file to hard limits
+    ulimit -n unlimited
+
     # Start Mongod
     echo "Starting MongoDB on ${port}, binding on ${bind_ip}..."
     local extra_options="$*"
@@ -942,6 +945,29 @@ _download_ops_manager() {
     echo "Downloaded ${archive} to ${local_file}..."
     popd > /dev/null
 }
+download_public_key_files() {
+    # Download public keys
+    echo "Downloading Ops Manager Public Keys..."
+    echo
+
+    pushd "$(mktemp -d)" > /dev/null 2>&1
+
+    # 5.0 key
+    _curl -O https://www.mongodb.org/static/pgp/opsmanager-5.0.asc
+    gpg --import opsmanager-5.0.asc
+    if [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux
+        rpm --import opsmanager-5.0.asc
+    fi
+
+    # 4.4 key
+    _curl -O https://www.mongodb.org/static/pgp/opsmanager-4.4.asc
+    gpg --import opsmanager-4.4.asc
+    if [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux
+        rpm --import opsmanager-4.4.asc
+    fi
+
+    popd > /dev/null 2>&1
+}
 _skip_ops_manager_registration_wizard() {
     echo "Skipping Ops Manager Registration Wizard..."
     echo
@@ -1045,6 +1071,7 @@ _get_tgz_install_dir() {
     echo "$(_user_dir)/mongodb-mms"
 }
 _install_ops_manager() {
+    # TODO(mihaibojin): Implement all steps from https://docs.opsmanager.mongodb.com/v5.0/tutorial/verify-ops-manager-packages/
     pushd "$(_user_dir)" > /dev/null
 
     # Determine if this is an upgrade operation
@@ -1556,17 +1583,15 @@ ulimits() {
         return
     fi
 
-    # Increase the number of maximum open files
+    # Increase the number of maximum open files and processes
     # see https://www.mongodb.com/blog/post/tuning-mongodb--linux-to-allow-for-tens-of-thousands-connections
     echo "Increasing default limits..."
     echo
-    echo "*           soft    nofile          9999999" | sudo tee -a /etc/security/limits.conf
-    echo "*           hard    nofile          9999999" | sudo tee -a /etc/security/limits.conf
-    echo "*           soft    nproc           9999999" | sudo tee -a /etc/security/limits.conf
-    echo "*           hard    nproc           9999999" | sudo tee -a /etc/security/limits.conf
-    echo "*           soft    stack           9999999" | sudo tee -a /etc/security/limits.conf
-    echo "*           hard    stack           9999999" | sudo tee -a /etc/security/limits.conf
-    sysctl -w fs.file-max=9999999
+    echo "*     soft   nofile  65535" | sudo tee -a /etc/security/limits.conf
+    echo "*     hard   nofile  65535" | sudo tee -a /etc/security/limits.conf
+    echo "*     soft   nproc  65535" | sudo tee -a /etc/security/limits.conf
+    echo "*     hard   nproc  65535" | sudo tee -a /etc/security/limits.conf
+    sysctl -w fs.file-max=500000
     sysctl -p
 }
 
@@ -1968,6 +1993,7 @@ seed-local() {
     chmod a+x "${WORKDIR}/.ego/bin/${SCRIPT}"
     "${WORKDIR}/.ego/bin/${SCRIPT}" link
     "${WORKDIR}/.ego/bin/${SCRIPT}" resolve_system_dependencies
+    "${WORKDIR}/.ego/bin/${SCRIPT}" download_public_key_files
     "${WORKDIR}/.ego/bin/${SCRIPT}" iptables_default_http_redirect
     "${WORKDIR}/.ego/bin/${SCRIPT}" ulimits
 }
@@ -1994,6 +2020,7 @@ seed() {
     remote_exec_cmd+=("chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT};")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} link;")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} resolve_system_dependencies;")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} download_public_key_files;")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} iptables_default_http_redirect;")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} ulimits;")
 
