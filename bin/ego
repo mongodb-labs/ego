@@ -49,7 +49,7 @@ set -o errexit
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly CWD="$(dirname "$(dirname "$(dirname "$(readlink "$0")")")")" # ego is installed in CWD/.ego/bin
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
-readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_om_port get_om_scheme is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
+readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip gcp_get_public_ip get_host_ip get_om_port get_om_scheme get_public_ip is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
 # Other settings
 declare -a curl_opts
@@ -320,16 +320,32 @@ _determine_architecture() {
 #                        HELPERS
 # #######################################################
 get_host_ip() {
-    /sbin/ifconfig | grep -E 'inet[^0-9]+' | sed -re 's/.*inet[^0-9]+([0-9\.]+).*/\1/g' | grep -v 127.0.0.1
+    /sbin/ifconfig | grep -E 'inet[^0-9]+' | sed -E 's/.*inet[^0-9]+([0-9\.]+).*/\1/g' | grep -v 127.0.0.1
 }
 aws_get_local_ip() {
-    _curl http://169.254.169.254/latest/meta-data/local-ipv4
+    _curl -f http://169.254.169.254/latest/meta-data/local-ipv4
 }
 aws_get_local_hostname() {
-    _curl http://169.254.169.254/latest/meta-data/local-hostname
+    _curl -f http://169.254.169.254/latest/meta-data/local-hostname
 }
 aws_get_public_ip() {
-    _curl http://169.254.169.254/latest/meta-data/public-ipv4
+    _curl -f http://169.254.169.254/latest/meta-data/public-ipv4
+}
+gcp_get_public_ip() {
+    _curl -f -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip
+}
+get_public_ip() {
+    # Makes a best effort guess at the host's IP
+    if aws_get_public_ip > /dev/null 2>&1; then
+        # Attempt to retrieve the AWS public IP
+        aws_get_public_ip
+    elif gcp_get_public_ip > /dev/null 2>&1; then
+        # or the Google Cloud public IP
+        gcp_get_public_ip
+    else
+        # or default to localhost/IPv4
+        echo "127.0.0.1"
+    fi
 }
 service_command() {
     # Parameter check
@@ -935,7 +951,7 @@ _skip_ops_manager_registration_wizard() {
     replace_property_in_file "$(_get_mms_config_file)" "mms.replyToEmailAddr" "noreply@example.com"
     replace_property_in_file "$(_get_mms_config_file)" "mms.adminEmailAddr" "noreply@example.com"
     replace_property_in_file "$(_get_mms_config_file)" "mms.mail.transport" "smtp"
-    replace_property_in_file "$(_get_mms_config_file)" "mms.mail.hostname" "localhost"
+    replace_property_in_file "$(_get_mms_config_file)" "mms.mail.hostname" "127.0.0.1"
     replace_property_in_file "$(_get_mms_config_file)" "mms.mail.port" "25"
     replace_property_in_file "$(_get_mms_config_file)" "mms.mail.ssl" "false"
 }
@@ -1670,7 +1686,9 @@ ops_manager_install_version() {
     
     local version=
     local mongodb_version=
-    local central_url="http://localhost:${MMS_PORT}"
+    local ip
+    ip="$(get_public_ip)"
+    local central_url="http://${ip}:${MMS_PORT}"
     local ssl_hostname=
     local tgz=
     while [[ "$#" -gt 0 ]]; do
@@ -1716,8 +1734,10 @@ ops_manager_install_from_link() {
 
     local archive=
     local mongodb_version=
-    local central_url="http://localhost:${MMS_PORT}"
-    local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
+    local ip
+    ip="$(get_public_ip)"
+    local central_url="http://${ip}:${MMS_PORT}"
+    local appdb_url="mongodb://127.0.0.1:${DEFAULT_MMS_MONGODB_PORT}"
     local ssl=0
     local ssl_hostname=
     while [[ "$#" -gt 0 ]]; do
@@ -1865,7 +1885,7 @@ run-background() {
 
     echo "Uploading provisioning script to ${host}:${NOHUP_PROV_FILE}..."
     # shellcheck disable=SC2016,SC2086
-    _scp "${ssh_opts[@]}" ${SSH_OPTS-} "${PROV}" "${host}:${NOHUP_PROV_FILE}"
+    _scp "${PROV}" "${host}:${NOHUP_PROV_FILE}"
 
     echo "Executing provisioning script..."
     # shellcheck disable=SC2086
