@@ -754,9 +754,6 @@ start_mongodb() {
     touch "$(_user_dir)/${MONGOD_INSTALL_DIR}/${port}/mongod.log"
     chmod 0777 "$(_user_dir)/${MONGOD_INSTALL_DIR}/${port}/mongod.log"
 
-    # Increase max open file to hard limits
-    ulimit -n unlimited
-
     # Start Mongod
     echo "Starting MongoDB on ${port}, binding on ${bind_ip}..."
     local extra_options="$*"
