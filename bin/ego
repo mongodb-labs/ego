@@ -1550,6 +1550,12 @@ configure_proxy() {
 }
 
 ulimits() {
+    if [[ "${PLATFORM}" = "suse" ]]; then # SuSe
+        echo
+        echo "Skipping ulimit increases on Suse due to https://unix.stackexchange.com/questions/432057/pam-limits-so-making-problems-for-sudo"
+        return
+    fi
+
     # Increase the number of maximum open files
     # see https://www.mongodb.com/blog/post/tuning-mongodb--linux-to-allow-for-tens-of-thousands-connections
     echo "*           soft    nofile          9999999" | sudo tee -a /etc/security/limits.conf
