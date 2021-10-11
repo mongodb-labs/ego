@@ -25,7 +25,7 @@ set -o errexit
 # - resolve_system_dependencies: install all required system dependencies required to run Ops Manager
 #                               (package and source-code) (Linux-only)
 # - _determine_architecture: detect running distribution and stop execution if not supported
-# - get_host_ip/aws_get_local_ip/aws_get_public_ip/gcp_get_public_ip: retrieve the running host's private/public IP
+# - get_host_ip/aws_get_local_ip/aws_get_public_ip/gcp_get_public_ip: retrieve the running host's private/public IP (AWS/GCP
 # - service_command: start/stop/restart services (automatically choosing SystemD, SysV, and init.d scripts)
 # - is_local_port_open: detect if a specified port is open
 # - wait_for_open_local_port/wait_for_closed_local_port: wait until the specified port is open/closed on 127.0.0.1
@@ -1426,6 +1426,16 @@ _iptables_allow_outgoing_for_user() {
     iptables -I OUTPUT 1 --proto tcp --dport  80 --match state --match owner --uid-owner "$1" --state NEW,ESTABLISHED --jump ACCEPT
     iptables -I OUTPUT 2 --proto tcp --dport 443 --match state --match owner --uid-owner "$1" --state NEW,ESTABLISHED --jump ACCEPT
 }
+iptables_default_http_redirect() {
+    # Redirect 80 to MMS_PORT
+    iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
+    iptables -I INPUT 2 -p tcp --dport "${MMS_PORT}" -j ACCEPT
+    iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port "${MMS_PORT}"
+    # Redirect 443 to MMS_SSL_PORT
+    iptables -I INPUT 3 -p tcp --dport 443 -j ACCEPT
+    iptables -I INPUT 4 -p tcp --dport "${MMS_SSL_PORT}" -j ACCEPT
+    iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port "${MMS_SSL_PORT}"
+}
 _iptables_show() {
     if ! command -v iptables >/dev/null 2>&1; then
         echo "The iptables utility is not available; cannot set firewall rules..."
@@ -1537,6 +1547,19 @@ configure_proxy() {
     
     echo "Waiting for squid to start..."
     wait_for_open_local_port "${PROXY_PORT}"
+}
+
+ulimits() {
+    # Increase the number of maximum open files
+    # see https://www.mongodb.com/blog/post/tuning-mongodb--linux-to-allow-for-tens-of-thousands-connections
+    echo "*           soft    nofile          9999999" | sudo tee -a /etc/security/limits.conf
+    echo "*           hard    nofile          9999999" | sudo tee -a /etc/security/limits.conf
+    echo "*           soft    nproc           9999999" | sudo tee -a /etc/security/limits.conf
+    echo "*           hard    nproc           9999999" | sudo tee -a /etc/security/limits.conf
+    echo "*           soft    stack           9999999" | sudo tee -a /etc/security/limits.conf
+    echo "*           hard    stack           9999999" | sudo tee -a /etc/security/limits.conf
+    sysctl -w fs.file-max=9999999
+    sysctl -p
 }
 
 
@@ -1937,7 +1960,8 @@ seed-local() {
     chmod a+x "${WORKDIR}/.ego/bin/${SCRIPT}"
     "${WORKDIR}/.ego/bin/${SCRIPT}" link
     "${WORKDIR}/.ego/bin/${SCRIPT}" resolve_system_dependencies
-    ulimit -n 999999
+    "${WORKDIR}/.ego/bin/${SCRIPT}" iptables_default_http_redirect
+    "${WORKDIR}/.ego/bin/${SCRIPT}" ulimits
 }
 seed() {
     # Print usage info
@@ -1961,8 +1985,9 @@ seed() {
     remote_exec_cmd+=("cp ${SCRIPT} ${WORKDIR}/.ego/bin/;")
     remote_exec_cmd+=("chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT};")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} link;")
-    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} resolve_system_dependencies")
-    remote_exec_cmd+=("sudo ulimit -n 999999")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} resolve_system_dependencies;")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} iptables_default_http_redirect;")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} ulimits;")
 
     # shellcheck disable=SC2016,SC2086
     if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd[*]}; then
