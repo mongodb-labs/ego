@@ -25,8 +25,7 @@ set -o errexit
 # - resolve_system_dependencies: install all required system dependencies required to run Ops Manager
 #                               (package and source-code) (Linux-only)
 # - _determine_architecture: detect running distribution and stop execution if not supported
-# - get_host_ip/aws_get_local_ip/aws_get_public_ip: retrieve the running host's private/public IP
-#                                                   (in AWS using the Metadata endpoint)
+# - get_host_ip/aws_get_local_ip/aws_get_public_ip/gcp_get_public_ip: retrieve the running host's private/public IP (AWS/GCP
 # - service_command: start/stop/restart services (automatically choosing SystemD, SysV, and init.d scripts)
 # - is_local_port_open: detect if a specified port is open
 # - wait_for_open_local_port/wait_for_closed_local_port: wait until the specified port is open/closed on 127.0.0.1
@@ -49,7 +48,7 @@ set -o errexit
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly CWD="$(dirname "$(dirname "$(dirname "$(readlink "$0")")")")" # ego is installed in CWD/.ego/bin
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
-readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip get_host_ip get_om_port get_om_scheme is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
+readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip gcp_get_public_ip get_host_ip get_om_port get_om_scheme get_public_ip is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
 # Other settings
 declare -a curl_opts
@@ -320,16 +319,32 @@ _determine_architecture() {
 #                        HELPERS
 # #######################################################
 get_host_ip() {
-    /sbin/ifconfig | grep -E 'inet[^0-9]+' | sed -re 's/.*inet[^0-9]+([0-9\.]+).*/\1/g' | grep -v 127.0.0.1
+    /sbin/ifconfig | grep -E 'inet[^0-9]+' | sed -E 's/.*inet[^0-9]+([0-9\.]+).*/\1/g' | grep -v 127.0.0.1
 }
 aws_get_local_ip() {
-    _curl http://169.254.169.254/latest/meta-data/local-ipv4
+    _curl -f http://169.254.169.254/latest/meta-data/local-ipv4
 }
 aws_get_local_hostname() {
-    _curl http://169.254.169.254/latest/meta-data/local-hostname
+    _curl -f http://169.254.169.254/latest/meta-data/local-hostname
 }
 aws_get_public_ip() {
-    _curl http://169.254.169.254/latest/meta-data/public-ipv4
+    _curl -f http://169.254.169.254/latest/meta-data/public-ipv4
+}
+gcp_get_public_ip() {
+    _curl -f -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip
+}
+get_public_ip() {
+    # Makes a best effort guess at the host's IP
+    if aws_get_public_ip > /dev/null 2>&1; then
+        # Attempt to retrieve the AWS public IP
+        aws_get_public_ip
+    elif gcp_get_public_ip > /dev/null 2>&1; then
+        # or the Google Cloud public IP
+        gcp_get_public_ip
+    else
+        # or default to localhost/IPv4
+        echo "127.0.0.1"
+    fi
 }
 service_command() {
     # Parameter check
@@ -542,23 +557,29 @@ resolve_system_dependencies() {
     if [[ "${PLATFORM}" = "debian" ]] || [[ "${PLATFORM}" = "ubuntu" ]]; then # Debian/Ubuntu
         _wait_for_process_to_finish apt
         _wait_for_process_to_finish dpkg
-        #apt-get update -y
+        apt-get update -y
         #_wait_for_process_to_finish apt
         #_wait_for_process_to_finish dpkg
 
     elif [[ "${PLATFORM}" = "rhel" ]] || [[ "${PLATFORM}" = "amazon" ]]; then # Red Hat / Amazon Linux
         _wait_for_process_to_finish yum
-        #yum update -y --skip-broken
+        yum update -y --skip-broken
 
     elif [[ "${PLATFORM}" = "suse" ]]; then # SuSe
         _wait_for_process_to_finish zypper
-        #zypper -n update --details
+        zypper -n update --details
+
+        echo "Installing JQ..."
+        pushd "$(_user_dir)" > /dev/null
+        _curl "${curl_opts}" -o "jq" "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64"
+        chmod a+rx jq
+        popd > /dev/null
 
     elif [[ "${PLATFORM}" = "windows" ]]; then # Windows
         echo "Cannot update System Dependencies in Cygwin..."
         echo
 
-        echo "Installing JQ"
+        echo "Installing JQ..."
         pushd "$(_user_dir)" > /dev/null
         _curl "${curl_opts}" -o "jq.exe" "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-win64.exe"
         popd > /dev/null
@@ -927,6 +948,29 @@ _download_ops_manager() {
     echo "Downloaded ${archive} to ${local_file}..."
     popd > /dev/null
 }
+download_public_key_files() {
+    # Download public keys
+    echo "Downloading Ops Manager Public Keys..."
+    echo
+
+    pushd "$(mktemp -d)" > /dev/null 2>&1
+
+    # 5.0 key
+    _curl -O https://www.mongodb.org/static/pgp/opsmanager-5.0.asc
+    gpg --import opsmanager-5.0.asc
+    if [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux
+        rpm --import opsmanager-5.0.asc
+    fi
+
+    # 4.4 key
+    _curl -O https://www.mongodb.org/static/pgp/opsmanager-4.4.asc
+    gpg --import opsmanager-4.4.asc
+    if [[ "${PLATFORM}" = "rhel" ]] || [[ ${PLATFORM} = "amazon" ]] || [[ ${PLATFORM} = "suse" ]]; then # Red Hat/Amazon Linux
+        rpm --import opsmanager-4.4.asc
+    fi
+
+    popd > /dev/null 2>&1
+}
 _skip_ops_manager_registration_wizard() {
     echo "Skipping Ops Manager Registration Wizard..."
     echo
@@ -935,7 +979,7 @@ _skip_ops_manager_registration_wizard() {
     replace_property_in_file "$(_get_mms_config_file)" "mms.replyToEmailAddr" "noreply@example.com"
     replace_property_in_file "$(_get_mms_config_file)" "mms.adminEmailAddr" "noreply@example.com"
     replace_property_in_file "$(_get_mms_config_file)" "mms.mail.transport" "smtp"
-    replace_property_in_file "$(_get_mms_config_file)" "mms.mail.hostname" "localhost"
+    replace_property_in_file "$(_get_mms_config_file)" "mms.mail.hostname" "127.0.0.1"
     replace_property_in_file "$(_get_mms_config_file)" "mms.mail.port" "25"
     replace_property_in_file "$(_get_mms_config_file)" "mms.mail.ssl" "false"
 }
@@ -1030,6 +1074,7 @@ _get_tgz_install_dir() {
     echo "$(_user_dir)/mongodb-mms"
 }
 _install_ops_manager() {
+    # TODO(mihaibojin): Implement all steps from https://docs.opsmanager.mongodb.com/v5.0/tutorial/verify-ops-manager-packages/
     pushd "$(_user_dir)" > /dev/null
 
     # Determine if this is an upgrade operation
@@ -1411,6 +1456,16 @@ _iptables_allow_outgoing_for_user() {
     iptables -I OUTPUT 1 --proto tcp --dport  80 --match state --match owner --uid-owner "$1" --state NEW,ESTABLISHED --jump ACCEPT
     iptables -I OUTPUT 2 --proto tcp --dport 443 --match state --match owner --uid-owner "$1" --state NEW,ESTABLISHED --jump ACCEPT
 }
+iptables_default_http_redirect() {
+    # Redirect 80 to MMS_PORT
+    iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
+    iptables -I INPUT 2 -p tcp --dport "${MMS_PORT}" -j ACCEPT
+    iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port "${MMS_PORT}"
+    # Redirect 443 to MMS_SSL_PORT
+    iptables -I INPUT 3 -p tcp --dport 443 -j ACCEPT
+    iptables -I INPUT 4 -p tcp --dport "${MMS_SSL_PORT}" -j ACCEPT
+    iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port "${MMS_SSL_PORT}"
+}
 _iptables_show() {
     if ! command -v iptables >/dev/null 2>&1; then
         echo "The iptables utility is not available; cannot set firewall rules..."
@@ -1459,7 +1514,7 @@ network_access_restrict() {
     _iptables_allow_dns
     _iptables_allow_aws_meta
     _iptables_allow_subnet
-    _iptables_allow_host "$(aws_get_public_ip)"
+    _iptables_allow_host "$(get_public_ip)"
     _iptables_deny_all
     _iptables_show
 }
@@ -1524,13 +1579,32 @@ configure_proxy() {
     wait_for_open_local_port "${PROXY_PORT}"
 }
 
+ulimits() {
+    if [[ "${PLATFORM}" = "suse" ]]; then # SuSe
+        echo
+        echo "Skipping ulimit increases on Suse due to https://unix.stackexchange.com/questions/432057/pam-limits-so-making-problems-for-sudo"
+        return
+    fi
+
+    # Increase the number of maximum open files and processes
+    # see https://www.mongodb.com/blog/post/tuning-mongodb--linux-to-allow-for-tens-of-thousands-connections
+    echo "Increasing default limits..."
+    echo
+    echo "*     soft   nofile  65535" | sudo tee -a /etc/security/limits.conf
+    echo "*     hard   nofile  65535" | sudo tee -a /etc/security/limits.conf
+    echo "*     soft   nproc  65535" | sudo tee -a /etc/security/limits.conf
+    echo "*     hard   nproc  65535" | sudo tee -a /etc/security/limits.conf
+    sysctl -w fs.file-max=500000
+    sysctl -p
+}
+
 
 # #######################################################
 #                           SSL
 # #######################################################
 ssl_generate_server_certificate() {
     if [[ "$#" -eq 0 || -z "$1" ]]; then
-        ssl_hostname="$(aws_get_public_ip)"
+        ssl_hostname="$(get_public_ip)"
         echo "A hostname was not specified; defaulting to: ${ssl_hostname}"
         echo
     else
@@ -1583,7 +1657,7 @@ ssl_generate_server_certificate() {
 }
 ops_manager_configure_ssl() {
     if [[ "$#" -eq 0 || -z "$1" ]]; then
-        ssl_hostname="$(aws_get_public_ip)"
+        ssl_hostname="$(get_public_ip)"
         echo "A hostname was not specified; defaulting to: ${ssl_hostname}"
         echo
     else
@@ -1670,7 +1744,9 @@ ops_manager_install_version() {
     
     local version=
     local mongodb_version=
-    local central_url="http://localhost:${MMS_PORT}"
+    local ip
+    ip="$(get_public_ip)"
+    local central_url="http://${ip}:${MMS_PORT}"
     local ssl_hostname=
     local tgz=
     while [[ "$#" -gt 0 ]]; do
@@ -1716,8 +1792,10 @@ ops_manager_install_from_link() {
 
     local archive=
     local mongodb_version=
-    local central_url="http://localhost:${MMS_PORT}"
-    local appdb_url="mongodb://localhost:${DEFAULT_MMS_MONGODB_PORT}"
+    local ip
+    ip="$(get_public_ip)"
+    local central_url="http://${ip}:${MMS_PORT}"
+    local appdb_url="mongodb://127.0.0.1:${DEFAULT_MMS_MONGODB_PORT}"
     local ssl=0
     local ssl_hostname=
     while [[ "$#" -gt 0 ]]; do
@@ -1865,7 +1943,7 @@ run-background() {
 
     echo "Uploading provisioning script to ${host}:${NOHUP_PROV_FILE}..."
     # shellcheck disable=SC2016,SC2086
-    _scp "${ssh_opts[@]}" ${SSH_OPTS-} "${PROV}" "${host}:${NOHUP_PROV_FILE}"
+    _scp "${PROV}" "${host}:${NOHUP_PROV_FILE}"
 
     echo "Executing provisioning script..."
     # shellcheck disable=SC2086
@@ -1918,6 +1996,9 @@ seed-local() {
     chmod a+x "${WORKDIR}/.ego/bin/${SCRIPT}"
     "${WORKDIR}/.ego/bin/${SCRIPT}" link
     "${WORKDIR}/.ego/bin/${SCRIPT}" resolve_system_dependencies
+    "${WORKDIR}/.ego/bin/${SCRIPT}" download_public_key_files
+    "${WORKDIR}/.ego/bin/${SCRIPT}" iptables_default_http_redirect
+    "${WORKDIR}/.ego/bin/${SCRIPT}" ulimits
 }
 seed() {
     # Print usage info
@@ -1941,7 +2022,10 @@ seed() {
     remote_exec_cmd+=("cp ${SCRIPT} ${WORKDIR}/.ego/bin/;")
     remote_exec_cmd+=("chmod a+x ${WORKDIR}/.ego/bin/${SCRIPT};")
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} link;")
-    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} resolve_system_dependencies")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} resolve_system_dependencies;")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} download_public_key_files;")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} iptables_default_http_redirect;")
+    remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} ulimits;")
 
     # shellcheck disable=SC2016,SC2086
     if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd[*]}; then

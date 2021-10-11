@@ -1,8 +1,8 @@
 variables:
 - &package_deb
-  archive: "https://downloads.mongodb.com/on-prem-mms/deb/mongodb-mms_4.2.15.56937.20200701T0316Z-1_x86_64.deb"
+  archive: "https://downloads.mongodb.com/on-prem-mms/deb/mongodb-mms_4.4.17.100.20210901T1617Z-1_x86_64.deb"
 - &package_rpm
-  archive: "https://downloads.mongodb.com/on-prem-mms/rpm/mongodb-mms-4.2.15.56937.20200701T0316Z-1.x86_64.rpm"
+  archive: "https://downloads.mongodb.com/on-prem-mms/rpm/mongodb-mms-4.4.17.100.20210901T1617Z-1.x86_64.rpm"
 
 functions:
   "fetch source":
@@ -145,71 +145,51 @@ post:
   - func: "clean"
 
 tasks:
-- name: INSTALL_OPS_MANAGER_4.0
+- name: INSTALL_OPS_MANAGER_4.4
   tags:
     - install
   commands:
     - func: "install ops manager"
       vars:
-        mongodb_version: 4.0.13
-        version: 4.0.16
+        version: 4.4.17
+        mongodb_version: 4.4.9
     - func: "uninstall ops manager"
 
-- name: INSTALL_OPS_MANAGER_4.2
-  tags:
-    - install
-  commands:
-    - func: "install ops manager"
-      vars:
-        mongodb_version: 4.2.8
-        version: 4.2.3
-    - func: "uninstall ops manager"
-
-- name: INSTALL_OPS_MANAGER_4.2_PACKAGE
+- name: INSTALL_OPS_MANAGER_4.4_PACKAGE
   tags:
     - install_package_deb
     - install_package_rpm
   commands:
     - func: "install ops manager package"
       vars:
-        mongodb_version: 4.2.8
+        mongodb_version: 4.4.9
         archive: ${archive}
     - func: "uninstall ops manager"
 
-- name: INSTALL_OPS_MANAGER_4.3_TGZ
+- name: INSTALL_OPS_MANAGER_4.4_TGZ
   tags:
     - install
   commands:
     - func: "install ops manager tgz"
       vars:
-        mongodb_version: 4.2.8
-        version: 4.3.9
+        version: 4.4.17
+        mongodb_version: 4.4.9
     - func: "uninstall ops manager"
 
-- name: INSTALL_OPS_MANAGER_4.3
-  tags:
-    - install
-  commands:
-    - func: "install ops manager"
-      vars:
-        mongodb_version: 4.2.8
-        version: 4.3.9
-    - func: "uninstall ops manager"
-
-- name: INSTALL_4.0-UPGRADE_4.2-UPGRADE_4.3
+- name: INSTALL_4.2-UPGRADE_4.4-UPGRADE_5.0
   tags:
     - upgrade
   commands:
     - func: "install ops manager"
       vars:
-        mongodb_version: 4.0.13
-        version: 4.0.16
+        version: 4.2.26
+        mongodb_version: 4.4.9
     - func: "install ops manager"
       vars:
-        version: 4.2.2
+        version: 4.4.17
     - func: "install ops manager"
       vars:
-        version: 4.3.9
+        version: 5.0.3
     - func: "uninstall ops manager"
 
 buildvariants:
@@ -223,9 +203,29 @@ buildvariants:
   - name: .install_package_deb
   - name: .upgrade
 
+- name: debian10
+  display_name: Debian 10
+  run_on: debian10-large
+  expansions:
+    *package_deb
+  tasks:
+  - name: .install
+  - name: .install_package_deb
+  - name: .upgrade
+
 - name: rhel-7.6
   display_name: RHEL 7.6
   run_on: rhel76-build
+  expansions:
+    *package_rpm
+  tasks:
+  - name: .install
+  - name: .install_package_rpm
+  - name: .upgrade
+
+- name: suse15
+  display_name: SUSE 15
+  run_on: suse15-large
   expansions:
     *package_rpm
   tasks:
