@@ -31,8 +31,12 @@ curl -sL https://raw.githubusercontent.com/mongodb-labs/ego/master/install.sh | 
 # or
 wget -qO- https://raw.githubusercontent.com/mongodb-labs/ego/master/install.sh | bash
 
-# After installing, source the corresponding file for your shell, e.g.:
+# After installing, re-read your shell's configuration file:
 source ~/.bashrc
+# or
+source ~/.zshrc
+# or
+source ~/.config/fish/config.fish
 ```
 
 2\. Deploy ego in the target system
