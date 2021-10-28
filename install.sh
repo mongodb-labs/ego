@@ -9,7 +9,7 @@
 declare -r SCRIPT="ego"
 declare -r REPO="mongodb-labs/ego"
 
-{ # download entire script
+{ # ensure the entire install script is downloaded
 EGO_HOME="${HOME}/.${SCRIPT}"
 
 # Ensure ego's work dirs are created
@@ -22,17 +22,17 @@ fi
 
 has_command() {
     if ! command -v "$1" > /dev/null 2>&1
-    then echo 1;
-    else echo 0;
+        then return 1;
+        else return 0;
     fi
 }
 
 download() {
-    echo "Downloading $* ..."
-    if command -v curl; then
+    echo "Downloading $*..."
+    if has_command curl; then
         HTTPS_PROXY=${HTTPS_PROXY:-$https_proxy}
         "$(command -v curl)" --silent --location --remote-name "$@"
-    elif command -v wget; then
+    elif has_command wget; then
         https_proxy=${https_proxy:-$HTTPS_PROXY}
         "$(command -v wget)" -q "$@"
     else
@@ -48,7 +48,6 @@ link() {
         # Do nothing if the file does not exist
         return
     fi
-
     if grep -qs "# EGO" "$1"; then
         # Already linked, do nothing
         return
@@ -59,10 +58,29 @@ link() {
     echo ""
     echo "# EGO"
     echo "export PATH=\"$EGO_HOME/bin:\$PATH\""
+    ) >> "$1"
+
+    echo "Added ${SCRIPT} to PATH via $1"
+}
+
+link_fish() {
+    if [ ! -f "$1" ]; then
+        # Do nothing if the file does not exist
+        return
+    fi
+    if grep -qs "# EGO" "$1"; then
+        # Already linked, do nothing
+        return
+    fi
+
+    # Add ego to fish's path
+    (
     echo ""
-    ) | tee -a "$1"
-    echo "Added ${SCRIPT} to PATH via $1 ..."
-    echo
+    echo "# EGO"
+    echo "fish_add_path $EGO_HOME/bin"
+    ) >> "$1"
+
+    echo "Added ${SCRIPT} to PATH via $1"
 }
 
 echo "Installing ${SCRIPT}..."
@@ -72,16 +90,16 @@ download "https://raw.githubusercontent.com/${REPO}/master/bin/${SCRIPT}"
 chmod u+x "${SCRIPT}"
 popd > /dev/null || exit 2
 
-echo "Linking ego in the system path"
-echo
+echo "Linking ego in the system path..."
 link "${HOME}/.zshrc"
 link "${HOME}/.bashrc"
 link "${HOME}/.profile"
 link "${HOME}/.bash_profile"
+link_fish "${HOME}/.config/fish/config.fish"
 
-echo ""
 echo "Installation complete!"
+echo
 echo "Please report any issues at: https://github.com/${REPO}/issues"
 echo
 
-} # download entire script
+} # ensure the entire install script is downloaded
