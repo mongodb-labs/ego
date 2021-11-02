@@ -45,8 +45,11 @@ set -o errexit
 # NOTE 2: If you want to enable explicit debugging, you can do so by: `export EGO_DEBUG=1` before running `ego`
 #
 
+#shellcheck disable=SC2155
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+#shellcheck disable=SC2155
 readonly CWD="$(dirname "$(dirname "$(dirname "$(readlink "$0")")")")" # ego is installed in CWD/.ego/bin
+#shellcheck disable=SC2155
 readonly SCRIPT=$(basename "${BASH_SOURCE[0]}")
 readonly NON_ROOT_FUNCTIONS="_set_mongod_vars aws_get_local_ip aws_get_public_ip gcp_get_public_ip get_host_ip get_om_port get_om_scheme get_public_ip is_local_port_open run run-background seed ssh system_info tail wait_for_closed_local_port wait_for_open_local_port wait_for_open_port"
 
