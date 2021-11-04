@@ -195,7 +195,7 @@ tasks:
 buildvariants:
 - name: ubuntu-18.04
   display_name: Ubuntu 18.04
-  run_on: ubuntu1804-build
+  run_on: ubuntu1804-large
   expansions:
     *package_deb
   tasks:
@@ -215,7 +215,7 @@ buildvariants:
 
 - name: rhel-7.6
   display_name: RHEL 7.6
-  run_on: rhel76-build
+  run_on: rhel76-large
   expansions:
     *package_rpm
   tasks:
