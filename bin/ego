@@ -204,10 +204,6 @@ _determine_architecture() {
             OSVER=18
             MDB_ARCH="x86_64-ubuntu1804"
 
-        elif lsb_release -a 2>&1 | grep 16.04 > /dev/null 2>&1; then
-            OSVER=16
-            MDB_ARCH="x86_64-ubuntu1604"
-
         else
             _unsupported_distro
         fi
@@ -250,21 +246,6 @@ _determine_architecture() {
         PLATFORM="rhel"
         OSVER=7
         MDB_ARCH="x86_64-rhel70"
-
-    elif lsb_release -a 2>&1 | grep -qE "^Description:\\s+Red Hat.+ 6" > /dev/null; then
-        PLATFORM="rhel"
-        OSVER=6
-        MDB_ARCH="x86_64-rhel62"
-
-    elif [[ -f /etc/os-release ]] && grep PRETTY /etc/os-release | grep -qE 'Red Hat.+ 6' > /dev/null; then # Red Hat 6
-        PLATFORM="rhel"
-        OSVER=6
-        MDB_ARCH="x86_64-rhel62"
-
-    elif [[ -f /etc/system-release ]] && grep -qE 'Red Hat.+ 6' /etc/system-release > /dev/null; then # Red Hat 6
-        PLATFORM="rhel"
-        OSVER=6
-        MDB_ARCH="x86_64-rhel62"
 
     elif [[ -f /etc/os-release ]] && grep PRETTY /etc/os-release | grep -qE 'SUSE.+15' > /dev/null; then # SUSE 15
         PLATFORM="suse"

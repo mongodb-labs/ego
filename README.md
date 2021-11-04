@@ -6,11 +6,11 @@ A *non-production* provisioning tool for installing [MongoDB Ops Manager](https:
 installs, upgrades, service management, etc.
 
 It currently supports the following Operating Systems:
-- Ubuntu 16.04, 18.04
+- Ubuntu 18.04, 20.04
 - Debian 8, 9, 10
-- Red Hat Enterprise 6.2, 7.x, 8.x
+- Red Hat Enterprise 7.x, 8.x
 - SUSE 12, 15
-- Amazon Linux 1, 2
+- Amazon Linux 2
 - Windows 2012+ (w. Cygwin)
 
 At a high-level, it works as follows:
