@@ -2012,11 +2012,11 @@ seed() {
     remote_exec_cmd+=("${WORKDIR}/.ego/bin/${SCRIPT} ulimits;")
 
     # shellcheck disable=SC2016,SC2086
-    if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd[*]}; then
+    if ! "$SSH" -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "${remote_exec_cmd[*]}"; then
         # Retry once, with increased verbosity
 
         # shellcheck disable=SC2016,SC2086
-        "$SSH" -vvv -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" ${remote_exec_cmd[*]}
+        "$SSH" -vvv -tt "${ssh_opts[@]}" ${SSH_OPTS-} "$1" "${remote_exec_cmd[*]}"
     fi
     echo
     echo "Deployed ${SCRIPT} to $1..."
