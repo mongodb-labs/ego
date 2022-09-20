@@ -1,4 +1,5 @@
 # ego
+> Deprecated, no longer maintained
 
 A *non-production* provisioning tool for installing [MongoDB Ops Manager](https://www.mongodb.com/products/ops-manager) on all supported Linux and Windows operating systems, in AWS.
 
